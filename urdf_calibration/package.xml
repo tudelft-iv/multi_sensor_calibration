@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>urdf_calibration</name>
+  <version>0.0.0</version>
+  <description>The urdf_calibration package</description>
+
+  <maintainer email="r.m.ensing@tudelft.nl">rmensing</maintainer>
+
+
+  <license>GPLv3</license>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>kdl_parser</depend>
+  <depend>urdf</depend>
+  <depend>yaml-cpp</depend>
+
+
+  <export>
+  </export>
+</package>

@@ -1,0 +1,38 @@
+visualize: false
+lidar_parameters:
+    number_layers: 20229                          # How many number of layers (aka nr of rings) does the lidar have?
+pass_through_filter:                             # Reduced the pointclouds to area that can contain the calibration board
+    -  {dim: "y", min: -10.0, max: 10}            # Passthrough filter in y direction: min and max values
+    -  {dim: "x", min: -10.0, max: 10}           # Passthrough filter in x direction: min and max values
+ground_floor_filter:                             # Parameters to remove ground floor from pointcloud
+    distance_threshold: 0.15
+    axis: {x: 0.0, y: 0.0, z: 1.0}
+    eps_angle: 0.55
+    max_iterations: 10000
+    set_negative: true
+    model_type: "sacmodel_perpendicular_plane"
+    return_projected: false
+calibration_board_filter:                        # Parameters to extract planar surface of calibration board
+    distance_threshold: 0.02
+    axis: {x: 0.0, y: 0.0, z: 1.0}
+    eps_angle: 0.55
+    max_iterations: 250
+    set_negative: false
+    model_type: "sacmodel_parallel_plane"
+    return_projected: true
+circle_detection:                                # Parameters to fit circles in pointcloud
+    distance_threshold: 0.01
+    max_iterations: 1000
+    min_radius: 0.06                             # Minimum radius to search for circles
+    max_radius: 0.1                              # Maximum radius to search for circles
+    cluster_iterations: 100
+    max_points_within_radius: 0                  # Maximum nr of points to be allowed within radius (radius_max_points), which determines if circle proposal is valid.
+    radius_max_points: 0.03                      # Circle radius to count number of points
+cloud_edge_filter:                               # Parameters to detect edges in pointcloud
+    threshold: 0.5                               # TODO: can be removed, because this value is not used.
+    radius: 0.0736                               # Radius of circles to be fitted. This value is used to adaptively determine thresholds for edge detection.
+refinement:                                      # Refinement of circle centers by performing a least square fit based on all 4 detections. If refine = false, individual circle center detections are returned.
+    refine: false                                 # If yes, return least square fit based on 3 or 4 detections. If no returns, individual detections.
+    width: 0.24                                  # width: distance between circle centers
+    height: 0.24                                 # heigth: distance between circle centers
+    threshold_inlier: 0.02                       # Threshold that determines if 4th circle centers is taken into consideration for least square fit.

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- Optimizer: estimate of all sensors poses -->
+	<include file="$(find multi_sensor_calibration_launch)/launch/detectors.launch"/>
+	<include file="$(find multi_sensor_calibration_launch)/launch/accumulator.launch"/>
+	<include file="$(find multi_sensor_calibration_launch)/launch/optimizer.launch"/>
+</launch>

@@ -1,0 +1,40 @@
+#
+#multi_sensor_calibration
+#Copyright (C) 2019  Intelligent Vehicles Delft University of Technology
+#
+#This program is free software; you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation; either version 2 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License along
+#with this program; if not, write to the Free Software Foundation, Inc.,
+#51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+#!/bin/bash
+
+# README: Make sure you source clr_calibration and run this on ubuntu 16.04 and ros kinetic.
+# The singularity image can be used for this. The singularity script is provided in this repository.
+
+# Immediately exit on failure
+set -euxo pipefail
+
+# Find stereo_detector package directory
+DIR=`rospack find stereo_detector`
+
+# Copy the file image.png and cloud.pcd from the sftp
+if [[ ! -f $DIR/image.png ]] || [[ ! -f $DIR/cloud.pcd ]]; then
+	sftp sftp.tudelft.nl:/staff-bulk/3me/cor/IV/rmensing/stereo_single/* `rospack find stereo_detector`
+fi
+
+rosrun stereo_detector stereo_detector_cli \
+	`rospack find stereo_detector`/image.png \
+	`rospack find stereo_detector`/cloud.pcd \
+	`rospack find stereo_detector`/config/config.yaml \
+	out.yaml

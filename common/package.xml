@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>common</name>
+  <version>0.0.0</version>
+  <description>The Common package</description>
+
+  <maintainer email="j.f.m.domhof@tudelft.nl">jfmdomhof</maintainer>
+
+  <license>GPLv3</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>Eigen3</build_depend>
+</package>

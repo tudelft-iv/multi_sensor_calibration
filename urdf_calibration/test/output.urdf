@@ -1,0 +1,36 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="my_example_robot">
+    <link name="base_link" />
+    <joint name="base_link_connection" type="fixed">
+        <parent link="base_link" />
+        <child link="chassis" />
+        <origin xyz="1 0 0" rpy="0 0 0" />
+        <axis xyz="1 0 0" />
+    </joint>
+    <link name="chassis" />
+    <!-- Some example comment in the output file as well -->
+    <link name="camera" />
+    <joint name="camera_joint" type="fixed">
+        <parent link="camera_mount_link" />
+        <child link="camera" />
+        <origin xyz="0 1 0" rpy="0 0 0" />
+    </joint>
+    <link name="laser_link" />
+    <joint name="laser_joint" type="fixed">
+        <parent link="laser_mount_link" />
+        <child link="laser_link" />
+        <origin xyz="1 0 0" rpy="0 0 0" />
+    </joint>
+    <link name="camera_mount_link" />
+    <joint name="camera_mount_joint" type="fixed">
+        <parent link="chassis" />
+        <child link="camera_mount_link" />
+        <origin xyz="0 1 0" rpy="0 0 0" />
+    </joint>
+    <link name="laser_mount_link" />
+    <joint name="laser_mount_joint" type="fixed">
+        <parent link="chassis" />
+        <child link="laser_mount_link" />
+        <origin xyz="1.000000 0.000000 0.000000" rpy="0.000000 -0.000000 0.000000" />
+    </joint>
+</robot>

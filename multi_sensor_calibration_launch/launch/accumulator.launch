@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>   
+	<!-- Accumulator: this node collects all calibration board locations-->
+	<node pkg="accumulator" type="accumulator" name="accumulator"/>
+</launch>

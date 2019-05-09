@@ -1,0 +1,30 @@
+pass_through_filter:                   # Reduced the pointclouds to area that can contain the calibration
+    -  {dim: "z", min: 2.0, max: 5.5}  # Passthrough filter in z direction: min and max values
+    -  {dim: "x", min: -2.0, max: 2.5} # Passthrough filter in x direction: min and max values
+canny:                                 # Canny edge detection parameters
+    min: 100
+    max: 120
+roi:                                   # ROI for detecting circles
+    x: 0
+    y: 800
+    width: 1936
+    height: 400
+plane_filter:                          # Get plane of calibration boaard
+    threshold: 0.1
+    eps_angle: 0.35
+    iterations: 250
+circle_detection:                      # Parameters to fit circles in pointcloud
+    threshold: 0.02
+    iterations: 1000
+    min_radius: 0.06                   # Minimum radius to search for circles
+    max_radius: 0.08                   # Maximum radius to search for circles
+    cluster_iterations: 100
+    radius_max_points: 0.05            # Circle radius to count number of points
+    max_points_within_radius: 1000000  # Maximum nr of points to be allowed within radius (radius_max_points), which determines if circle proposal is valid.
+plane_distance: 0.1
+visualize: false
+refinement:                            # Refinement of circle centers by performing a least square fit based on all 4 detections. If refine = false, individual circle center detections are returned.
+    refine: false                       # If yes, return least square fit based on 3 or 4 detections. If no returns, individual detections.
+    width: 0.24                        # width: distance between circle centers
+    height: 0.24                       # heigth: distance between circle centers
+    threshold_inlier: 0.01             # Threshold that determines if 4th circle centers is taken into consideration for least square fit.

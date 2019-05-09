@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package>
+    <name>optimization</name>
+    <version>0.0.0</version>
+    <description>The optimization package</description>
+
+    <maintainer email="j.f.m.domhof@tudelft.nl">jfmdomhof</maintainer>
+
+    <license>GPLv3</license>
+
+    <build_depend>message_generation</build_depend>
+    <build_depend>rostest</build_depend>
+    <build_depend>std_msgs</build_depend>
+    <build_depend>accumulator</build_depend>
+
+    <run_depend>message_runtime</run_depend>
+    <run_depend>rospy</run_depend>
+    <run_depend>std_msgs</run_depend>
+    <run_depend>accumulator</run_depend>
+
+    <buildtool_depend>catkin</buildtool_depend>
+</package>

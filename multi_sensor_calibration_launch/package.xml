@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package>
+  <name>multi_sensor_calibration_launch</name>
+  <version>0.0.0</version>
+  <description>The multi_sensor_calibration_launch package</description>
+
+  <maintainer email="j.f.m.domhof@tudelft.nl">jfmdomhof</maintainer>
+
+  <license>GPLv3</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+  </export>
+</package>
