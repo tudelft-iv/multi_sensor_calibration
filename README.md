@@ -177,7 +177,7 @@ You have to make sure that you run a roscore as well. In the second terminal, yo
 ```
 In the third terminal, go the folder containing our calibration and load the example YAML:
 ```
-    rosservice call /accumulator/load "data: {data: 'accumulator/data/example_data.yaml'}"
+    rosservice call /accumulator/load "data: {data: '<path_to_repository>/accumulator/data/example_data.yaml'}"
     rosservice call /accumulator/optimize
 ```
 With the FCPE configuration, you should see the following results in the terminal running the optimizer:

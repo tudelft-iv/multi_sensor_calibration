@@ -4,7 +4,7 @@
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 
 # This program is distributed in the hope that it will be useful,
@@ -12,9 +12,16 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+import os
+import rospkg
+NAME = 'optimizer'
+pkg_name = rospkg.get_package_name(os.path.dirname(os.path.realpath(__file__)))
+pkg_dir = rospkg.RosPack().get_path(pkg_name)
+sys.path.append(pkg_dir + '/lib/icp') #Added for lib/icp folder in ROS
 from accumulator.srv import *
 import rospy
 import numpy as np
@@ -24,14 +31,7 @@ from optimization.helper_functions import *
 from optimization.config import *
 from optimization.optimize import joint_optimization,remove_non_visible_detections_in_reference_sensor
 import ros_numpy
-import os
-import rospkg
 
-NAME = 'optimizer'
-pkg_name = rospkg.get_package_name(os.path.dirname(os.path.realpath(__file__)))
-pkg_dir = rospkg.RosPack().get_path(pkg_name)
-
-   
 def print_service_call_message(msg):
     for i_sensor in range(len(msg.accumulated_patterns)):
         print('Sensor type: ' + msg.accumulated_patterns[i_sensor].sensor.data)
