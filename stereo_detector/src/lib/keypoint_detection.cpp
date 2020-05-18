@@ -144,7 +144,7 @@ void getPlane(
 	seg.segment(*inliers, coefficients); // Gets the plane coefficients (a*x + b*y + c*z = d)
 
 	// Check if a plane is found
-	if (inliers->indices.size() == 1) {
+	if (inliers->indices.size() <= 1) {
 		throw std::runtime_error("Could not estimate a planar model for the given point cloud.");
 	}
 

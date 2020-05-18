@@ -145,7 +145,7 @@ void StereoDetectorNode::callback(
 		point_cloud_publisher_.publish(out);
 		sphere_marker_publisher_.publish(toMarkers(processed, image->header));
 	} catch (std::exception & e) {
-		ROS_INFO_ONCE("Ignoring exceptions in at least one frame.");
+		ROS_INFO_ONCE("Ignoring exceptions in at least one frame. Reason: %s", e.what());
 	}
 }
 
