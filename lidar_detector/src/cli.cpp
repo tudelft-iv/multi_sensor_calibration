@@ -84,8 +84,8 @@ int main(int argc, char * * argv) {
 	Configuration config = YAML::LoadFile(argv[2]).as<Configuration>();
 
 	// Load point cloud
-	pcl::PointCloud<Velodyne::Point> cloud;
-	if (pcl::io::loadPCDFile<Velodyne::Point>(point_cloud_file, cloud) != 0) {
+	pcl::PointCloud<Lidar::PointWithDist> cloud;
+	if (pcl::io::loadPCDFile<Lidar::PointWithDist>(point_cloud_file, cloud) != 0) {
 		std::cerr << "Could not open file: '" << point_cloud_file << "'." << std::endl;
 		return 1;
 	}

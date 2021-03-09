@@ -27,27 +27,27 @@ namespace lidar_detector {
 namespace {
 
 /// Passthrough filter of point cloud
-pcl::PointCloud<Velodyne::Point> passThrough(
-	pcl::PointCloud<Velodyne::Point> const & cloud,
+pcl::PointCloud<Lidar::PointWithDist> passThrough(
+	pcl::PointCloud<Lidar::PointWithDist> const & cloud,
 	PassThroughFilter const & config
 ) {
-	pcl::PassThrough<Velodyne::Point> pass;
+	pcl::PassThrough<Lidar::PointWithDist> pass;
 	pass.setInputCloud(cloud.makeShared());
 	pass.setFilterFieldName(config.dim);
 	pass.setFilterLimits(config.min, config.max);
 	pass.setFilterLimitsNegative(false);
 	pass.setKeepOrganized(false);
-	pcl::PointCloud<Velodyne::Point> out;
+	pcl::PointCloud<Lidar::PointWithDist> out;
 	pass.filter(out);
 	return out;
 }
 
 /// Multiple passthrough filters of point cloud
-pcl::PointCloud<Velodyne::Point> passThrough(
-	pcl::PointCloud<Velodyne::Point> const & cloud,
+pcl::PointCloud<Lidar::PointWithDist> passThrough(
+	pcl::PointCloud<Lidar::PointWithDist> const & cloud,
 	std::vector<PassThroughFilter> const & config
 ) {
-	pcl::PointCloud<Velodyne::Point> out = cloud;
+	pcl::PointCloud<Lidar::PointWithDist> out = cloud;
 	for (std::size_t i = 0; i < config.size(); ++i) {
 		out = passThrough(out, config.at(i));
 	}
@@ -55,8 +55,8 @@ pcl::PointCloud<Velodyne::Point> passThrough(
 }
 
 /// Project points on plane given by coefficients
-void projectOnPlane(pcl::ModelCoefficients::ConstPtr const & coefficients, pcl::PointCloud<Velodyne::Point>::Ptr & cloud) {
-	pcl::ProjectInliers<Velodyne::Point> projection;
+void projectOnPlane(pcl::ModelCoefficients::ConstPtr const & coefficients, pcl::PointCloud<Lidar::PointWithDist>::Ptr & cloud) {
+	pcl::ProjectInliers<Lidar::PointWithDist> projection;
 	projection.setModelType(pcl::SACMODEL_PLANE);
 	projection.setInputCloud(cloud);
 	projection.setModelCoefficients(coefficients);
@@ -64,15 +64,15 @@ void projectOnPlane(pcl::ModelCoefficients::ConstPtr const & coefficients, pcl::
 }
 
 /// Apply plane fit and return filtered point cloud
-pcl::PointCloud<Velodyne::Point> filterPlane(
-	pcl::PointCloud<Velodyne::Point> const & in,
+pcl::PointCloud<Lidar::PointWithDist> filterPlane(
+	pcl::PointCloud<Lidar::PointWithDist> const & in,
 	PlaneFilter const & config
 ) {
 	// Compute coefficients of ground floor
-	pcl::PointCloud<Velodyne::Point>::Ptr out (new pcl::PointCloud<Velodyne::Point>);
+	pcl::PointCloud<Lidar::PointWithDist>::Ptr out (new pcl::PointCloud<Lidar::PointWithDist>);
 	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-	pcl::SACSegmentation<Velodyne::Point> plane_segmentation;
+	pcl::SACSegmentation<Lidar::PointWithDist> plane_segmentation;
 	plane_segmentation.setModelType(config.model_type);
 	plane_segmentation.setDistanceThreshold(config.distance_threshold);
 	plane_segmentation.setMethodType(pcl::SAC_RANSAC);
@@ -84,7 +84,7 @@ pcl::PointCloud<Velodyne::Point> filterPlane(
 	plane_segmentation.segment(*inliers, *coefficients);
 
 	// Extract non ground floor PCL
-	pcl::ExtractIndices<Velodyne::Point> extract;
+	pcl::ExtractIndices<Lidar::PointWithDist> extract;
 	extract.setInputCloud(in.makeShared());
 	extract.setIndices(inliers);
 	extract.setNegative(config.set_negative);
@@ -99,15 +99,15 @@ pcl::PointCloud<Velodyne::Point> filterPlane(
 }
 
 /// Get rings as a vector of pointers to the Velodyne Points to keep mapping from rings to original velodyne points
-std::vector<std::vector<Velodyne::Point*> > getRings(pcl::PointCloud<Velodyne::Point> & in, LidarParameters const & lidar_parameters) {
-	std::vector<std::vector<Velodyne::Point*> > rings(lidar_parameters.number_layers);
+std::vector<std::vector<Lidar::PointWithDist*> > getRings(pcl::PointCloud<Lidar::PointWithDist> & in, LidarParameters const & lidar_parameters) {
+	std::vector<std::vector<Lidar::PointWithDist*> > rings(lidar_parameters.number_layers);
 	for (std::size_t i = 0; i < in.size(); ++i) {
 		rings[in.at(i).ring].push_back(&(in.at(i)));
 	}
 	return rings;
 }
 
-pcl::PointCloud<pcl::PointXYZ> toCloud(std::vector<Velodyne::Point*> const & ring) {
+pcl::PointCloud<pcl::PointXYZ> toCloud(std::vector<Lidar::PointWithDist*> const & ring) {
 	pcl::PointCloud<pcl::PointXYZ> out;
 	for (std::size_t i = 0; i < ring.size(); ++i) {
 		out.push_back(pcl::PointXYZ(ring.at(i)->x, ring.at(i)->y, ring.at(i)->z));
@@ -117,7 +117,7 @@ pcl::PointCloud<pcl::PointXYZ> toCloud(std::vector<Velodyne::Point*> const & rin
 
 
 // Visualize rings to check if OK
-void visualize(std::vector<std::vector<Velodyne::Point*> > const & rings) {
+void visualize(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
 	pcl::visualization::PCLVisualizer viewer;
 	for (std::size_t i = 0; i < rings.size(); ++i) {
 		pcl::PointCloud<pcl::PointXYZ> cloud = toCloud(rings.at(i));
@@ -129,33 +129,33 @@ void visualize(std::vector<std::vector<Velodyne::Point*> > const & rings) {
 
 
 /// Returns true if the number of points is too small (c++03 compatible)
-bool isFewPoints(std::vector<Velodyne::Point*> const in) {
+bool isFewPoints(std::vector<Lidar::PointWithDist*> const in) {
 	return (in.size() < 4) ? true : false;
 }
 
 /// Detect edges based on distances with respect to neighbouring points in the filtered velodyne point cloud
-std::vector<std::vector<Velodyne::Point*> > toDistanceRing(pcl::PointCloud<Velodyne::Point> & in, float & average_distance_ring, LidarParameters const & lidar_parameters) {
+std::vector<std::vector<Lidar::PointWithDist*> > toDistanceRing(pcl::PointCloud<Lidar::PointWithDist> & in, float & average_distance_ring, LidarParameters const & lidar_parameters) {
 	// Loop over the rings
 	int max_points_ring = 0;
-	std::vector<std::vector<Velodyne::Point*> > rings = getRings(in, lidar_parameters);
+	std::vector<std::vector<Lidar::PointWithDist*> > rings = getRings(in, lidar_parameters);
 	rings.erase(std::remove_if(rings.begin(), rings.end(), isFewPoints), rings.end()); // c++03 compatible
-	for (std::vector<std::vector<Velodyne::Point*> >::iterator ring = rings.begin(); ring < rings.end(); ring++){
+	for (std::vector<std::vector<Lidar::PointWithDist*> >::iterator ring = rings.begin(); ring < rings.end(); ring++){
 		if (ring->size() < 10) {
 			std::cerr << "Ring too small, continue.." << std::endl;
 			continue;
 		}
-		(*ring->begin())->intensity = 0;
-		(*(ring->end()-1))->intensity = 0;
+		(*ring->begin())->distance = 0;
+		(*(ring->end()-1))->distance = 0;
 		// Loop over the points in the ring
 		float total_distance_ring = 0;
-		for (std::vector<Velodyne::Point*>::iterator pt = ring->begin() + 1; pt < ring->end() - 1; pt++) {
-			Velodyne::Point* next_point = *(pt + 1);
-			Velodyne::Point* prev_point = *(pt - 1);
+		for (std::vector<Lidar::PointWithDist*>::iterator pt = ring->begin() + 1; pt < ring->end() - 1; pt++) {
+			Lidar::PointWithDist* next_point = *(pt + 1);
+			Lidar::PointWithDist* prev_point = *(pt - 1);
 			float dx = prev_point->x - next_point->x;
 			float dy = prev_point->y - next_point->y;
 			float dz = prev_point->z - next_point->z;
-			(*pt)->intensity = sqrt(dx*dx+dy*dy+dz*dz)/2;
-			total_distance_ring += (*pt)->intensity;
+			(*pt)->distance = sqrt(dx*dx+dy*dy+dz*dz)/2;
+			total_distance_ring += (*pt)->distance;
 		}
 		if (ring->size() > max_points_ring) {
 			max_points_ring = ring->size();
@@ -166,12 +166,12 @@ std::vector<std::vector<Velodyne::Point*> > toDistanceRing(pcl::PointCloud<Velod
 }
 
 /// Create edges point cloud
-pcl::PointCloud<Velodyne::Point> createEdgeCloud(pcl::PointCloud<Velodyne::Point> const & cloud, CloudEdgeFilter const & config, float const average_distance_ring) {
-	pcl::PointCloud<Velodyne::Point> edges_cloud;
+pcl::PointCloud<Lidar::PointWithDist> createEdgeCloud(pcl::PointCloud<Lidar::PointWithDist> const & cloud, CloudEdgeFilter const & config, float const average_distance_ring) {
+	pcl::PointCloud<Lidar::PointWithDist> edges_cloud;
 	float min_threshold = 3*average_distance_ring; // min gap is 3 times resolution
 	float max_threshold = (2*config.radius + 2*average_distance_ring); // Gap cannot be larger than diameter plus 2 times resolution
 	for (std::size_t i = 0; i < cloud.size(); ++i) {
-		if (cloud.at(i).intensity > min_threshold && cloud.at(i).intensity < max_threshold ) { // jump should be smaller or equal to diameter + 2* angeluar resuoltion
+		if (cloud.at(i).distance > min_threshold && cloud.at(i).distance < max_threshold ) { // jump should be smaller or equal to diameter + 2* angeluar resuoltion
 			edges_cloud.push_back(cloud.at(i));
 		}
 	}
@@ -182,7 +182,7 @@ pcl::PointCloud<Velodyne::Point> createEdgeCloud(pcl::PointCloud<Velodyne::Point
 }
 
 // Filter outliers and return PointXYZ since velodyne specific info is no longer required from now on
-pcl::PointCloud<pcl::PointXYZ> filterOutliers(std::vector<std::vector<Velodyne::Point*> > const & rings) {
+pcl::PointCloud<pcl::PointXYZ> filterOutliers(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
 	pcl::PointCloud<pcl::PointXYZ> out;
 	int rings_with_circle = 0;
 	for (std::size_t i = 0; i < rings.size(); ++i) {
@@ -201,7 +201,7 @@ pcl::PointCloud<pcl::PointXYZ> filterOutliers(std::vector<std::vector<Velodyne::
 }
 
 /// Calculates the number of points within a certain radius
-int pointsWithinRadius(pcl::PointXYZ const & point, pcl::PointCloud<Velodyne::Point> const & cloud, float const radius) {
+int pointsWithinRadius(pcl::PointXYZ const & point, pcl::PointCloud<Lidar::PointWithDist> const & cloud, float const radius) {
 	// Convert cloud from velodyne point to pcl PointXYZ
 	pcl::PointCloud<pcl::PointXYZ> out;
 	for (std::size_t i = 0; i < cloud.size(); ++i) {
@@ -227,7 +227,7 @@ int pointsWithinRadius(pcl::PointXYZ const & point, pcl::PointCloud<Velodyne::Po
 }
 
 /// Process to find a circle
-bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Velodyne::Point> & plane, CircleDetection const & config, pcl::PointXYZ & point) {
+bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar::PointWithDist> & plane, CircleDetection const & config, pcl::PointXYZ & point) {
 	// Create circle segmentation object
 	pcl::SACSegmentation<pcl::PointXYZ> seg;
 	seg.setModelType(pcl::SACMODEL_CIRCLE3D);
@@ -266,7 +266,7 @@ bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Velod
 }
 
 /// Detect circles and return point cloud with centroids of calibration pattern
-pcl::PointCloud<pcl::PointXYZ> processCircles(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Velodyne::Point> & plane, CircleDetection const & config) {
+pcl::PointCloud<pcl::PointXYZ> processCircles(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar::PointWithDist> & plane, CircleDetection const & config) {
 	pcl::PointCloud<pcl::PointXYZ> out;
 	std::size_t iteration = 0;
 	while (out.size() < 4 && iteration < config.cluster_iterations) { // The calibration board consists of four circles that need to be detected
@@ -314,14 +314,14 @@ Eigen::Matrix3Xd convertPointcloudToEigen(pcl::PointCloud<pcl::PointXYZ> cloud) 
 
 /// Apply plane fit and return filtered point cloud
 pcl::ModelCoefficients getPlaneCoefficients(
-	pcl::PointCloud<Velodyne::Point> const & in,
+	pcl::PointCloud<Lidar::PointWithDist> const & in,
 	PlaneFilter const & config
 ) {
 	// Compute coefficients of ground floor
-	pcl::PointCloud<Velodyne::Point>::Ptr out (new pcl::PointCloud<Velodyne::Point>);
+	pcl::PointCloud<Lidar::PointWithDist>::Ptr out (new pcl::PointCloud<Lidar::PointWithDist>);
 	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-	pcl::SACSegmentation<Velodyne::Point> plane_segmentation;
+	pcl::SACSegmentation<Lidar::PointWithDist> plane_segmentation;
 	plane_segmentation.setModelType(config.model_type);
 	plane_segmentation.setDistanceThreshold(config.distance_threshold);
 	plane_segmentation.setMethodType(pcl::SAC_RANSAC);
@@ -367,26 +367,26 @@ pcl::PointCloud<pcl::PointXYZ> refinement(pcl::PointCloud<pcl::PointXYZ> pattern
 
 	return refined_pattern;
 }
-pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Velodyne::Point> const & in, Configuration const & config) {
+pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Lidar::PointWithDist> const & in, Configuration const & config) {
 	// Passthrough filter
-	pcl::PointCloud<Velodyne::Point> passthrough_cloud = passThrough(in, config.pass_through_filter);
+	pcl::PointCloud<Lidar::PointWithDist> passthrough_cloud = passThrough(in, config.pass_through_filter);
 
 	// Compute coefficients of ground floor
-	pcl::PointCloud<Velodyne::Point> cloud_without_ground_floor = filterPlane(passthrough_cloud, config.ground_floor_filter);
+	pcl::PointCloud<Lidar::PointWithDist> cloud_without_ground_floor = filterPlane(passthrough_cloud, config.ground_floor_filter);
 
 	// Compute coefficients of vertical plane and extract points of vertical plane
-	pcl::PointCloud<Velodyne::Point> cloud_calibration_board = filterPlane(cloud_without_ground_floor, config.calibration_board_filter);
+	pcl::PointCloud<Lidar::PointWithDist> cloud_calibration_board = filterPlane(cloud_without_ground_floor, config.calibration_board_filter);
 
-	// Edge detection: Loop over all rings, and then over all points, and calculate distance w.r.t. neighbors, store the resulting distance in intensity field of point
+	// Edge detection: Loop over all rings, and then over all points, and calculate distance w.r.t. neighbors.
 	float average_distance_ring;
-	std::vector<std::vector<Velodyne::Point*> > rings = toDistanceRing(cloud_calibration_board, average_distance_ring, config.lidar_parameters);
+	std::vector<std::vector<Lidar::PointWithDist*> > rings = toDistanceRing(cloud_calibration_board, average_distance_ring, config.lidar_parameters);
 	if (config.visualize) { visualize(rings); }
 
 	// Create unorganized point cloud of edge points
-	pcl::PointCloud<Velodyne::Point> edges_cloud = createEdgeCloud(cloud_calibration_board, config.cloud_edge_filter, average_distance_ring);
+	pcl::PointCloud<Lidar::PointWithDist> edges_cloud = createEdgeCloud(cloud_calibration_board, config.cloud_edge_filter, average_distance_ring);
 
 	// Remove edge points from edge cloud if corresponding ring contains only a < 4 points
-	std::vector<std::vector<Velodyne::Point*> > edges_rings = getRings(edges_cloud, config.lidar_parameters);
+	std::vector<std::vector<Lidar::PointWithDist*> > edges_rings = getRings(edges_cloud, config.lidar_parameters);
 	pcl::PointCloud<pcl::PointXYZ> circles_cloud = filterOutliers(edges_rings);
 
 	// Circle3d fit for all four circles
