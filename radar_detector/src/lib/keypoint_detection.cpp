@@ -41,7 +41,7 @@ pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, floa
 			best_candidate_value = selection;
 			point.x = x;
 			point.y = y;
-			point.z = rcs;
+			point.z = detection.position.z;
 		}
 	}
 	return point;

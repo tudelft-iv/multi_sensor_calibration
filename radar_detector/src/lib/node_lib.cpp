@@ -24,7 +24,11 @@
 #include "keypoint_detection.hpp"
 
 bool isValidDetection(pcl::PointXYZ point) {
-	return !(point.x == 0 && point.y == 0 && point.z == 0);
+	return !(point.x == 0 && point.y == 0);
+}
+
+bool is_3d(pcl::PointXYZ point) {
+	return point.z != 0;
 }
 
 namespace radar_detector {
@@ -39,6 +43,24 @@ geometry_msgs::Point toRos(pcl::PointXYZ const & point) {
 }
 
 /// Convert a point cloud to a marker of spheres
+visualization_msgs::Marker toPoint(pcl::PointXYZ const & point, std_msgs::Header const & header) {
+	visualization_msgs::Marker marker;
+	marker.action          = visualization_msgs::Marker::ADD;
+	marker.type            = visualization_msgs::Marker::SPHERE;
+	marker.header = header;
+	marker.pose.position = toRos(point);
+	marker.pose.orientation.w = 1.0;
+	marker.color.a = 1.0;
+	marker.color.r = 0.0;
+	marker.color.g = 1.0;
+	marker.color.b = 0.0;
+	marker.scale.x = 0.2;
+	marker.scale.y = 0.2;
+	marker.scale.z = 0.2;
+	return marker;
+}
+
+/// Convert a point cloud to a specific point
 visualization_msgs::Marker toArc(pcl::PointXYZ const & point, std_msgs::Header const & header, float & maximum_elevation_degrees) {
 	visualization_msgs::Marker marker;
 	marker.action          = visualization_msgs::Marker::ADD;
@@ -82,7 +104,12 @@ void RadarDetectorNode::publishMarker(pcl::PointXYZ const & point, std_msgs::Hea
 
 	// Get arc for radar detection
 	visualization_msgs::Marker marker;
-	marker = toArc(point, header, el);
+	if(is_3d(point)){
+        marker = toPoint(point, header);
+	}else{
+	    marker = toArc(point, header, el);
+	}
+
 	// Publish marker
 	marker_publisher_.publish(marker);
 }
@@ -145,7 +172,7 @@ RadarDetectorNode::RadarDetectorNode(ros::NodeHandle & nh) :
 void RadarDetectorNode::callback(radar_msgs::RadarDetectionArray const & in) {
 	ROS_INFO_ONCE("Receiving radar messages.");
 	// Find reflection of calibration board
-	pcl::PointXYZ point = keypointDetection(in, min_RCS_, max_RCS_,min_range_object_, max_range_object_, select_range_, select_min_); // Z-Value is actually the rcs value
+	pcl::PointXYZ point = keypointDetection(in, min_RCS_, max_RCS_,min_range_object_, max_range_object_, select_range_, select_min_);
 
 	// Publish results if detected point is valid (so not in origin of sensor)
 	if (isValidDetection(point)) {
