@@ -243,15 +243,11 @@ bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar
 	pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
 	seg.segment(*inliers, *coefficients);
 
-	// Filter point cloud
-	pcl::ExtractIndices<pcl::PointXYZ> extract;
-	extract.setInputCloud(cloud.makeShared());
-	extract.setIndices(inliers);
-	extract.setNegative(true);
-	extract.filter(cloud);
+
 
 	if (inliers->indices.size() == 0) {
-		throw pcl::PCLException("Lidar calibration board detection could not estimate a circle fit for lidar camera edge cloud.");
+	    return false;
+		//throw pcl::PCLException("Lidar calibration board detection could not estimate a circle fit for lidar camera edge cloud.");
 	}
 
 	// Return center
@@ -260,6 +256,12 @@ bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar
 	point.z = *(coefficients->values.begin() + 2);
 
 	if (pointsWithinRadius(point, plane, config.radius_max_points) <= config.max_points_within_radius) {
+		// Filter point cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud(cloud.makeShared());
+        extract.setIndices(inliers);
+        extract.setNegative(true);
+        extract.filter(cloud);
 		return true;
 	}
 	return false;
