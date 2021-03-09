@@ -154,9 +154,8 @@ def read_yaml_file_detector_input(name): #TODO: improve readibility
 
 
 def read_csv_file(name):
-    f = open(name, "rb")
-    data = np.loadtxt(f, delimiter=",")
-    f.close()
+    with open(name, 'rb') as f:
+        data = np.loadtxt(f, delimiter=",")
     return data
 
 
@@ -213,26 +212,38 @@ def read_from_folder(mypath):
     return detector_data
 
 
-def load_data(lidar_path, camera_path, radar_path, rcs_path):
-    if os.path.isdir(lidar_path):
-        # Read data from folders with multiple files
-        Xl = read_from_folder(lidar_path)          # Load lidar data
-        Xc = read_from_folder(camera_path)     # Load camera data
-        Xr, rcs = read_radar_from_folder(radar_path)  # Load radar data
-    elif os.path.isfile(lidar_path):
-        # Read data from single file:
-        Xl = read_file(lidar_path)
-        Xc = read_file(camera_path)
-        Xr = read_file(radar_path)
+def _load_lidar_or_cam(path):
+    if os.path.isdir(path):
+        data = read_from_folder(path)
+    elif os.path.isfile(path):
+        data = read_file(path)
+    else:
+        raise Exception('Cannot load data because is neither a valid folder or a valid file (YAML/CSV): %s' % path)
+    return data
 
+
+def load_lidar(path):
+    return _load_lidar_or_cam(path)
+
+
+def load_camera(path):
+    return _load_lidar_or_cam(path)
+
+
+def load_radar(path, rcs_path = None):
+    if os.path.isdir(path):
+        Xr, rcs = read_radar_from_folder(path)
+    elif os.path.isfile(path):
+        Xr = read_file(path)
         if rcs_path is not None:
             rcs = read_file(rcs_path)
         else:
             rcs = np.empty(Xr.shape[1]) * np.nan
     else:
-        raise Exception('Cannot load data because is neither a valid folder or a valid file (YAML/CSV)')
+        raise Exception('Cannot load data because is neither a valid folder or a valid file (YAML/CSV): %s' % path)
 
-    return Xl, Xc, Xr, rcs
+    return Xr, rcs
+
 
 def export_sensor_data_to_yaml(sensors, folder =''): 
     # Save as YAML files

@@ -32,95 +32,100 @@ def get_ransac_parameters():
     return this_ransac
 
 
-def get_lidar(Xl):
+def get_lidar(Xl, sensor_name="lidar1"):
     # Setup lidar sensor
 
     # Experimental function box constraints for relative poses (only for MCPE & PSE)
-    lidar_constraint = Constraint()
-    lidar_constraint.parent = 'lidar1'
-    lidar_constraint.lb = np.empty(6) * np.nan
-    lidar_constraint.ub = np.empty(6) * np.nan
+    lidar_constraint = Constraint(parent='lidar1',
+                                  lb=np.empty(6) * np.nan,
+                                  ub=np.empty(6) * np.nan)
 
-    lidar_sensor = Sensor()
-    lidar_sensor.name = 'lidar1'
-    lidar_sensor.type = 'lidar'
-    lidar_sensor.constraints = lidar_constraint
-    lidar_sensor.sensor_data = Xl
-    lidar_sensor.mu = np.full((Xl.shape[1]), True, dtype=bool)
-    lidar_sensor.mu[np.where(np.isnan(Xl[0, :]))] = False
-    lidar_sensor.W = np.identity(3)
-    lidar_sensor.link = 'velodyne'
+    lidar_sensor = Sensor(name=sensor_name,
+                          type='lidar',
+                          constraints=lidar_constraint,
+                          sensor_data=Xl,
+                          mu=np.any(np.isnan(Xl), axis=0) == False,
+                          W=np.identity(3),
+                          link='velodyne'
+                          )
 
     return lidar_sensor
 
 
-def get_camera(Xc):
+def get_camera(Xc, sensor_name="camera1"):
     # Setup camera sensor
 
     # Experimental function box constraints for relative poses (only for MCPE & PSE)
-    camera_constraint = Constraint()
-    camera_constraint.parent = 'lidar1'
-    camera_constraint.lb = np.empty(6) * np.nan
-    camera_constraint.ub = np.empty(6) * np.nan
+    camera_constraint = Constraint(parent='lidar1',
+                                   lb=np.empty(6) * np.nan,
+                                   ub=np.empty(6) * np.nan)
 
-    camera_sensor = Sensor()
-    camera_sensor.name = 'camera1'
-    camera_sensor.type = 'stereo'
-    camera_sensor.constraints = camera_constraint
-    camera_sensor.sensor_data = Xc
-    camera_sensor.mu = np.full((Xc.shape[1]), True, dtype=bool)
-    camera_sensor.mu[np.where(np.isnan(Xc[0, :]))] = False
-    camera_sensor.W = np.identity(3)
-    camera_sensor.link = 'left'
+    camera_sensor = Sensor(name=sensor_name,
+                           type='stereo',
+                           constraints=camera_constraint,
+                           sensor_data=Xc,
+                           mu=np.any(np.isnan(Xc), axis=0) == False,
+                           W=np.identity(3),
+                           link='left'
+                           )
 
     return camera_sensor
 
 
-def get_radar(Xr, rcs):
+def get_radar(Xr, rcs, sensor_name="radar1"):
     # Setup radar sensor
 
     # Experimental function box constraints for relative poses (only for MCPE & PSE)
-    radar_constraint = Constraint()
-    radar_constraint.parent = 'lidar1'
-    radar_constraint.lb = np.empty(6) * np.nan
-    radar_constraint.ub = np.empty(6) * np.nan
+    radar_constraint = Constraint(parent='lidar1',
+                                  lb=np.empty(6) * np.nan,
+                                  ub=np.empty(6) * np.nan)
 
     # Radar maximum elevation angle constraint
     radar_fov = fov_radar()
     radar_fov.max_elevation = 9 * math.pi / 180
 
-    radar_sensor = Sensor()
-    radar_sensor.name = 'radar1'
-    radar_sensor.type = 'radar'
-    radar_sensor.constraints = radar_constraint
-    radar_sensor.sensor_data = Xr
-    radar_sensor.mu = np.full((Xr.shape[1]), True, dtype=bool)  # mu are defined to be mapping from internal X (optimization) to observations
-    radar_sensor.mu[np.where(np.isnan(Xr[0, :]))] = False
-    radar_sensor.fov = radar_fov
-    radar_sensor.parameters = 'eucledian'  # eucledian or polar
-    radar_sensor.optional = rcs
-    radar_sensor.W = np.identity(2)
-    radar_sensor.link = 'front_center_right_sonar_link'
+    radar_type = 'radar'
+    radar_sensor = Sensor(name=sensor_name,
+                          type=radar_type,
+                          constraints=radar_constraint,
+                          sensor_data=Xr,
+                          mu=np.any(np.isnan(Xr), axis=0) == False,
+                          fov=radar_fov,
+                          parameters='eucledian',
+                          optional=rcs,
+                          W=np.identity(Xr.shape[0]),
+                          link='front_center_right_sonar_link'
+                          )
 
     return radar_sensor
 
 
-def get_sensor_setup(lidar_path, camera_path, radar_path, rcs_path, outlier_rejection_mode=True, reorder_detections=False, reorder_method='based_on_reference'):
-    # Load pointclouds from lidar (Xl), camera (Xc), and radar Xr
-    Xl, Xc, Xr, rcs = load_data(lidar_path, camera_path, radar_path, rcs_path)
+def get_sensor_setup(lidar_paths, camera_paths, radar_paths, rcs_paths, outlier_rejection_mode=True,
+                     reorder_detections=False, reorder_method='based_on_reference', ignore_file=None):
+    if rcs_paths is None:
+        rcs_paths = [None] * len(radar_paths)
+    assert len(radar_paths) == len(rcs_paths), "Not enough rcs paths given for the set number of radars"
 
-    # # Setup lidar
-    lidar_sensor = get_lidar(Xl)
-
+    # Setup all sensors. Note that the enumeration starts at 1 (i.e. enumerate(..., 1)), to make the names start at 1
+    # Setup lidar
+    lidar_sensors = [get_lidar(load_lidar(path), sensor_name="lidar%d" % idx)
+                     for idx, path in enumerate(lidar_paths, 1)]
     # Setup camera
-    camera_sensor = get_camera(Xc)
-
-    # Setup radar
-    radar_sensor = get_radar(Xr, rcs)
+    camera_sensors = [get_camera(load_camera(path), sensor_name="camera%d" % idx)
+                      for idx, path in enumerate(camera_paths, 1)]
+    # Setup radar (note asterisk (*) to unpack arguments from and into load_radar)
+    radar_sensors = [get_radar(*load_radar(*paths), sensor_name="radar%d" % idx)
+                     for idx, paths in enumerate(zip(radar_paths, rcs_paths), 1)]
 
     # Merge all sensors
-    sensors = [lidar_sensor, camera_sensor, radar_sensor]
-    nr_calib_boards = int(len(lidar_sensor.mu) / get_nr_detection('lidar'))
+    sensors = lidar_sensors + camera_sensors + radar_sensors
+
+    calib_boards_per_sensor = [len(sensor.mu) // get_nr_detection(sensor.type) for sensor in sensors]
+
+    #Check if all sensors have equal number of calibration boards. If yes, just select the first.
+    assert len(np.unique(calib_boards_per_sensor)) == 1, "No all sensors have equal number of calibration boards:" \
+                                                         " %s" % calib_boards_per_sensor
+    nr_calib_boards = calib_boards_per_sensor[0]
 
     # Outlier removal
     if outlier_rejection_mode:
@@ -128,10 +133,11 @@ def get_sensor_setup(lidar_path, camera_path, radar_path, rcs_path, outlier_reje
 
     # Reorder detections
     if reorder_detections: 
-        # Select first sensor that is not radar as reference sensor
+        # Select a sensor that is not radar as reference sensor
         for i in range(len(sensors)):
-            if sensors[i].type is not 'radar':
+            if sensors[i].type != 'radar':
                 index_reference_sensor = i
+                break
         # index_reference_sensor is only used in based_on_reference_sensor
 
         # Reindex based on selected reference sensor

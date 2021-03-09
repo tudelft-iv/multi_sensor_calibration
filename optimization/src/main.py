@@ -39,10 +39,10 @@ if __name__ == '__main__':
     parser.add_argument('--calibration-mode', required=True, type=int, help='0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices, 1: Pose and Structure Estimation (PSE) with known observation covariance matrices, 2: Minimally Connected Pose Estimation (MCPE), 3: Fully Connected Pose Estimation (FCPE)')
 
     # path to csv files
-    parser.add_argument('--lidar', type=str, required=True, help='Path to lidar CSV/YAML file')
-    parser.add_argument('--camera', type=str, required=True, help='Path to camera CSV/YAML file')
-    parser.add_argument('--radar', type=str, required=True, help='Path to radar CSV/YAML file')
-    parser.add_argument('--rcs', type=str, default=None, required=False, help='Path to RCS CSV file') #TODO: add option to load as YAML file as well.
+    parser.add_argument('--lidar', type=str, action='append', default=[], help='Path to lidar CSV/YAML file')
+    parser.add_argument('--camera', type=str, action='append', default=[], help='Path to camera CSV/YAML file')
+    parser.add_argument('--radar', type=str,action='append', default=[], help='Path to radar CSV/YAML file')
+    parser.add_argument('--rcs', type=str, action='append', default=None, required=False, help='Path to RCS CSV file') #TODO: add option to load as YAML file as well.
 
     # output directory to save yaml
     parser.add_argument('--output-directory', type=str, default="results", help='Path to save output yaml file')
@@ -59,7 +59,11 @@ if __name__ == '__main__':
 
     # Parse arguments
     args = parser.parse_args()
-
+    assert len(args.lidar) + len(args.camera) + len(args.radar) >= 2, \
+                "Optimizer requires at least two sensors. Received the following:\n" \
+                "\tLidars: %s\n" \
+                "\tCameras: %s\n" \
+                "\tRadars: %s" % (args.lidar, args.camera, args.radar)
     # Retrieve sensors setup:
     sensors, nr_calib_boards = get_sensor_setup(args.lidar, args.camera, args.radar, args.rcs, not args.keep_outliers, args.reorder_detections, args.reorder_method)
 

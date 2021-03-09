@@ -48,25 +48,44 @@ class fov_radar:
 
 class Constraint:
     # Define class constraint which can be used for constrained optimization
-    parent = ''  # parent reference frame
-    lb = None  # upper bound wrt to parent
-    ub = None  # lower bound wrt to parent
+    #parent = ''  # parent reference frame
+    #lb = None  # upper bound wrt to parent
+    #ub = None  # lower bound wrt to parent
+
+    def __init__(self, parent, lb, ub):
+        self.parent = parent
+        self.lb = lb
+        self.ub = ub
 
 
 class Sensor:
     # Define class sensor, which contains all sensor data
-    # Initial values, sensor observations, visiblity of target
-    name = ''   # name of this sensor
-    type = ''   # type of sensor: lidar, stereo, mono or radar
-    T = np.identity(4)     # transformation matrix
-    constraints = None  # constraints
-    sensor_data = None  # sensor data containing the obersvations
-    mu = None  # mu is an array that defines if calibration board locations is visible (1) or not (0)
-    fov = None  # Field of View of sensor
-    parameters = None
-    optional = None
-    W = None  # Inverse of measurement covariance matrix
-    link = None  # [Optional]Link name of sensor, as define in URDF (ROS)
+    # Initial values, sensor observations, visibility of target
+    # name = ''   # name of this sensor
+    # type = ''   # type of sensor: lidar, stereo, mono or radar
+    # T = np.identity(4)     # transformation matrix
+    # constraints = None  # constraints
+    # sensor_data = None  # sensor data containing the observations
+    # mu = None  # mu is an array that defines if calibration board locations is visible (1) or not (0)
+    # fov = None  # Field of View of sensor
+    # parameters = None
+    # optional = None
+    # W = None  # Inverse of measurement covariance matrix
+    # link = None  # [Optional]Link name of sensor, as define in URDF (ROS)
+
+    def __init__(self, name, type, constraints, sensor_data, mu, W, link, T=None, fov=None, parameters=None,
+                 optional=None):
+        self.name = name
+        self.type = type
+        self.T = T if T is not None else np.identity(4)
+        self.constraints = constraints
+        self.sensor_data = sensor_data
+        self.fov = fov
+        self.mu = mu
+        self.parameters = parameters
+        self.optional = optional
+        self.W = W
+        self.link = link
 
 
 def eul2rotm(euler_angles):
