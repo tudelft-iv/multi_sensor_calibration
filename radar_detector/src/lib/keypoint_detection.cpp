@@ -21,17 +21,24 @@
 
 namespace radar_detector {
 
-pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, float const min, float const max, float const min_range, float const max_range) {
+pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, float const min, float const max,
+                                        float const min_range, float const max_range,
+                                        bool const select_range, bool const select_min) {
 	pcl::PointXYZ point;
-	float closest_range = std::numeric_limits<float>::max();
+	float best_candidate_value = select_min ? std::numeric_limits<float>::max():std::numeric_limits<float>::lowest();
 	std::vector<radar_msgs::RadarDetection> vector_detections = in.detections;
-	for (std::size_t i = 0; i < vector_detections.size(); ++i) {
-		float x = vector_detections.at(i).position.x;
-		float y = vector_detections.at(i).position.y;
-		double range = sqrt(x*x+y*y); // compute range using x and y
-		float rcs = vector_detections.at(i).amplitude; // RCS value
-		if (rcs > min && rcs < max && range < closest_range && range > min_range && range < max_range) {
-			closest_range = range;
+	for (auto detection:vector_detections) {
+
+		float x = detection.position.x;
+		float y = detection.position.y;
+		float range = sqrt(x*x+y*y); // compute range using x and y
+		float rcs = detection.amplitude; // RCS value
+		// select the best candidate either based on range or on rcs
+		float selection = select_range ? range : rcs;
+		// the best candidate can be either the lowest or the highest value
+		bool is_best_candidate = select_min ? selection < best_candidate_value : selection > best_candidate_value;
+		if (is_best_candidate && rcs > min && rcs < max && range < max_range && range > min_range) {
+			best_candidate_value = selection;
 			point.x = x;
 			point.y = y;
 			point.z = rcs;

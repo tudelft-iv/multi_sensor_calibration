@@ -10,5 +10,8 @@
 	<node pkg="radar_converter" type="radar_converter_node" name="radar_converter"/>
 
 	<!-- Radar: Start detector for radar -->
-	<node pkg="radar_detector" type="radar_detector_node" name="radar_detector" args="_minimum_RCS:=-10 _maximum_RCS:=15 _max_range_object:=5"/>
+	<!-- _selection_basis: either rcs or range -->
+	<!-- _selection_criterion: either min or max -->
+	<node pkg="radar_detector" type="radar_detector_node" name="radar_detector" 
+	      args="_minimum_RCS:=-10 _maximum_RCS:=15 _max_range_object:=5 _selection_basis:=range _selection_criterion:=min"/>
 </launch>
