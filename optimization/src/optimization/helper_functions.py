@@ -287,8 +287,7 @@ def rodrigues2rotm(v):
     else:
         v = v / theta
         ux = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-        uxx = np.array([[v[0] * v[0], v[0] * v[1], v[0] * v[2]], [v[1] * v[0], v[1] * v[1], v[1] * v[2]], [v[2] * v[0], v[2] * v[1], v[2] * v[2]]])
-        R = np.cos(theta) * np.identity(3) + np.sin(theta) * ux + (1 - np.cos(theta)) * uxx
+        R = np.cos(theta) * np.identity(3) + np.sin(theta) * ux + (1 - np.cos(theta)) * np.outer(v, v)
 
     return R
 
@@ -329,7 +328,7 @@ def compute_calibration_board_poses(xmap, nr_detections, point_correspondences_b
     # Loop over all CB
     for i in range(nr_cb):
         # Compute initial poses by using kabsch or ICP
-        if point_correspondences_board is 'unknown':
+        if point_correspondences_board == 'unknown':
             # The correspondeces are unknown
             # Assumption:
             # - the calibration target is a planar surface with at least 3 detections
@@ -520,7 +519,7 @@ def reorder_detections_sensors(sensors, reordering_mode, reference_sensor):
 
     # Loop over all sensors and reindex detections such that top-left, top-rigth, bottom-left, bottom-right detection of alll senesors (lidar & camera) match
     for i in range(len(sensors)):
-        if sensors[i].type is 'radar':
+        if get_nr_detection(sensors[i].type) == 1:
             # In this case sensor is radar and we only have a single detection so we do not have to reorder it.
             pass
         else:

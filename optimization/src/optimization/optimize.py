@@ -220,7 +220,7 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         print("Optimizing your sensor setup using", all_optimization_modes[mode])
         print('----------------------------------------------------------------\n')
 
-        if mode is 0:
+        if mode == 0:
             # The configuration used in this calibration mode is: Pose and Structure Estimation (PSE)
             # This mode iteratively joinlty estimates all sensor poses, calibration board poses and observation noise of the sensors.
             # 1) First  finds optimal sensor poses and calibration board poses with minimizing squared error (aka all covariance matrices equal I)
@@ -228,7 +228,7 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
             # 3) Repeat 1 and 2 until convergence.
             calibration = iterative_covariance_estimation(sensors, reference_sensor, True, correspondences)
             Tms = calibration.convertXtoTms(calibration.getX())
-        elif mode is 1:
+        elif mode == 1:
             # The configuration used in this calibration mode is: Pose and Structure Estimation (PSE)
             # This mode assumes that the observations covariance matrices (W^-1) are known and defined in get_sensor_setup()
             calibration = PSE(sensors, reference_sensor, True, correspondences)
@@ -310,7 +310,7 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
 
         # Select first sensor that is not radar as reference sensor
         for i in range(len(sensors)):
-            if sensors[i].type is not 'radar':
+            if sensors[i].type != 'radar':
                 index_reference_sensor = i
 
         # Remove non visible detection from reference sensor

@@ -79,6 +79,8 @@ def target2radar3D(X_target, offset=geometry_calibration_board.offset_radar):
 
 
 def compute_normal_vector(Xc):
+    if np.any(np.isnan(Xc)):
+        return np.nan
     # TODO: add least squares refinement to also use the 4th point
     if 1:
         # Substract mean
@@ -141,8 +143,8 @@ def is_valid_board(Xc, identify_individual_outliers):
     for i in range(len(all_combinations)):
         distances[i] = compute_eucledian_distance(Xc[:, all_combinations[i][0]], Xc[:, all_combinations[i][1]])
 
-    # ratio between side of square and diagonal of square should equal sqrt(2)
-    is_square = is_approximately_equal(np.max(distances) / np.min(distances), np.sqrt(2), 0.3)
+    # ratio between side of square and diagonal of square should equal sqrt(2), and no distance should be 0
+    is_square = np.all(distances>0) and is_approximately_equal(np.max(distances) / np.min(distances), np.sqrt(2), 0.3)
     is_not_outlier = np.full((4), True, dtype=bool) if is_square else np.full((4), False, dtype=bool)
 
     # If there is an outlier try to indentity it
@@ -205,7 +207,7 @@ def remove_outlier_detections(sensors, nr_calib_boards, mode):
         valid_sensor_detections = np.full(len(sensors), False, dtype=bool)
         for iS in range(len(sensors)):
             nr_detections_board = get_nr_detection(sensors[iS].type)
-            if sensors[iS].type != 'radar':
+            if nr_detections_board > 1:
                 valid_sensor_detections[iS] = np.all(is_valid_board(sensors[iS].sensor_data[:, nr_detections_board * i:nr_detections_board * (i + 1)], False))
             else:
                 valid_sensor_detections[iS] = sensors[iS].mu[i]
@@ -225,8 +227,8 @@ def remove_outlier_detections(sensors, nr_calib_boards, mode):
 
         # Mark all calibration board locations with invalid detections (aka outliers)
         for iS in range(len(sensors)):
-            if sensors[iS].type != 'radar':
-                nr_detections_board = get_nr_detection(sensors[iS].type)
+            nr_detections_board = get_nr_detection(sensors[iS].type)
+            if nr_detections_board > 1:
                 sensors[iS].mu[nr_detections_board * i:nr_detections_board * (i + 1)] = is_valid[iS]
             else:
                 sensors[iS].mu[i] = is_valid[iS]
@@ -238,8 +240,8 @@ def remove_outlier_detections(sensors, nr_calib_boards, mode):
             sensors[iS].sensor_data = sensors[iS].sensor_data[:, sensors[iS].mu]
             sensors[iS].mu = np.full((sensors[iS].sensor_data.shape[1]), True, dtype=bool)
         elif mode == 'remove_detections':
-            # Remove only invalid detections
-            sensors[iS].sensor_data = sensors[iS].sensor_data[:, sensors[iS].mu]
+            # Set invalid detections to nan
+            sensors[iS].sensor_data[:, ~sensors[iS].mu] = np.nan
         else:
             raise Exception('Unknown mode for outlier removal')
 
