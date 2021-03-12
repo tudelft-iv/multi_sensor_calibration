@@ -93,6 +93,12 @@ def read_data_from_folder(mypath, dim1=None, dim2=None):
     return detector_data
 
 
+def read_yaml_ignore_file(name):
+    with open(name, 'r') as stream:
+        data = yaml.load(stream)
+    return data
+
+
 def read_yaml_file(name):
     with open(name, 'r') as stream:
         try:

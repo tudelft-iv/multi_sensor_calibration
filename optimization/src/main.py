@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--camera', type=str, action='append', default=[], help='Path to camera CSV/YAML file')
     parser.add_argument('--radar', type=str,action='append', default=[], help='Path to radar CSV/YAML file')
     parser.add_argument('--rcs', type=str, action='append', default=None, required=False, help='Path to RCS CSV file') #TODO: add option to load as YAML file as well.
-
+    parser.add_argument('--ignore_file', type=str, default=None, required=False, help="Path to file stating which measurements to ignore")
     # output directory to save yaml
     parser.add_argument('--output-directory', type=str, default="results", help='Path to save output yaml file')
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 "\tCameras: %s\n" \
                 "\tRadars: %s" % (args.lidar, args.camera, args.radar)
     # Retrieve sensors setup:
-    sensors, nr_calib_boards = get_sensor_setup(args.lidar, args.camera, args.radar, args.rcs, not args.keep_outliers, args.reorder_detections, args.reorder_method)
+    sensors, nr_calib_boards = get_sensor_setup(args.lidar, args.camera, args.radar, args.rcs, not args.keep_outliers, args.reorder_detections, args.reorder_method, args.ignore_file)
 
     if args.unknown_correspondences:
         # In this case the correspondences between the keypoints of lidar and camera are not known.

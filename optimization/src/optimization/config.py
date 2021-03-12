@@ -133,7 +133,7 @@ def get_sensor_setup(lidar_paths, camera_paths, radar_paths, rcs_paths, outlier_
 
     # Outlier removal
     if outlier_rejection_mode:
-        sensors, nr_calib_boards = remove_outlier_detections(sensors, nr_calib_boards, 'remove_board_locations')
+        sensors, nr_calib_boards = remove_outlier_detections(sensors, nr_calib_boards, 'remove_detections')
 
     # Reorder detections
     if reorder_detections: 
@@ -146,5 +146,11 @@ def get_sensor_setup(lidar_paths, camera_paths, radar_paths, rcs_paths, outlier_
 
         # Reindex based on selected reference sensor
         sensors = reorder_detections_sensors(sensors, reorder_method, sensors[index_reference_sensor].name)
+    if ignore_file:
+        sensor_dict = {sensor.name:sensor for sensor in sensors}
+        ignore_dict = read_yaml_ignore_file(ignore_file)
+        for sensor_name, to_ignore in ignore_dict.items():
+            sensor_dict[sensor_name].mu[to_ignore] = False
+            sensor_dict[sensor_name].sensor_data[:, to_ignore] = np.nan
 
     return sensors, nr_calib_boards
