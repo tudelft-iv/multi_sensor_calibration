@@ -56,6 +56,8 @@ if __name__ == '__main__':
 
     # Visualise results
     parser.add_argument('--visualise', action='store_true', default=False, help='Plot results in 3D plot')
+    parser.add_argument('--sensors_to_number', action='append', default=['camera1'], help='Add numbering to sensor points')
+    parser.add_argument('--plot_correspondence', nargs='+', default=[], help='Plot alignment of two sensor sets')
 
     # Parse arguments
     args = parser.parse_args()
@@ -80,4 +82,4 @@ if __name__ == '__main__':
         correpondences = 'known'
 
     # Joint optimization
-    joint_optimization(sensors, args.calibration_mode, correpondences, args.reference_sensor, args.visualise, args.output_directory)
+    joint_optimization(sensors, args.calibration_mode, correpondences, args.reference_sensor, args.visualise, args.output_directory, args.sensors_to_number, args.plot_correspondence)

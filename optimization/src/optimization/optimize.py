@@ -60,51 +60,55 @@ def get_mu_union_radar_and_pcl(mu_radar, mu_pcl, nr_detections_lidar_camera):
     return mu_radar_out, mu_pcl_out
 
 def print_RMSE_calibration_errors(sensors, reference_sensor, Tms):
+    # initialise list for output
+    errors = []
+
     # Compute all pairwise errors
     for l in range(len(Tms)):
         for m in range(l + 1, len(Tms)):
             this_Tms = np.linalg.inv(np.dot(Tms[l], np.linalg.inv(Tms[m])))
-            if sensors[m].type == 'radar' and sensors[l].type == 'radar':
+            sensor1 = sensors[m]
+            sensor2 = sensors[l]
+            Y1, Y2 = get_aligned_sensor_data(sensor1, sensor2, valid_measurements_only=True)
+            if sensor1.type == 'radar' and sensor2.type == 'radar':
                 # TODO: implement radar to radar errors
                 pass
-            elif sensors[m].type == 'radar':
-                # Get common detections for pcl and radar
-                mu_radar_common, mu_pcl_common = get_mu_union_radar_and_pcl(sensors[m].mu, sensors[l].mu, get_nr_detection(sensors[l].type))
-                mu_radar = mu_radar_common[sensors[m].mu] # Detections for radar detections
-                mu_pcl = mu_pcl_common[sensors[l].mu] # Detections for pointcloud
-
+            elif sensor1.type == 'radar':
                 # Tms is always from sensor to radar
-                rmse = compute_rmse_pcl2radar(sensors[l].sensor_data[:,mu_pcl], sensors[m].sensor_data[:,mu_radar], this_Tms)
-                print('RMSE ', sensors[l].name, 'to', sensors[m].name, '=', '{: .5f}'.format(rmse))
-            elif sensors[l].type == 'radar':
-                # Get common detections for pcl and radar
-                mu_radar_common, mu_pcl_common = get_mu_union_radar_and_pcl(sensors[l].mu, sensors[m].mu, get_nr_detection(sensors[m].type))
-                mu_radar = mu_radar_common[sensors[l].mu] # Detections for first radar detections
-                mu_pcl = mu_pcl_common[sensors[m].mu] # Detections for pointcloud
-            
+                rmse, error_per_item = compute_rmse_pcl2radar2(Y2, Y1, this_Tms, return_per_item_error=True)
+                sensor_from = sensor2
+                sensor_to = sensor1
+            elif sensor2.type == 'radar':
                 # Tms is always from sensor to radar
-                rmse = compute_rmse_pcl2radar(sensors[m].sensor_data[:,mu_pcl], sensors[l].sensor_data[:,mu_radar], np.linalg.inv(this_Tms))
-                print('RMSE ', sensors[m].name, 'to', sensors[l].name, '=', '{: .5f}'.format(rmse))
+                rmse, error_per_item = compute_rmse_pcl2radar2(Y1, Y2, np.linalg.inv(this_Tms), return_per_item_error=True)
+                sensor_from = sensor1
+                sensor_to = sensor2
             else:
                 # Transformation matrix might be defined from l to m or from m to l --> pick smallest
                 # TODO: use as argument which of the two it is for lidar to stereo
-                mu_common = get_mu_union_pcl_and_pcl(sensors[l].mu, sensors[m].mu)
-                mu_pcl1 = mu_common[sensors[l].mu] # Detections for first pointcloud
-                mu_pcl2 = mu_common[sensors[m].mu] # Detections for second pointcloud
                 # Use all common detections to compute RMSE
-                rmse1 = compute_rmse_pcl2pcl_unknown_assignment(sensors[l].sensor_data[:, mu_pcl1], sensors[m].sensor_data[:, mu_pcl2], this_Tms)
-                rmse2 = compute_rmse_pcl2pcl_unknown_assignment(sensors[l].sensor_data[:, mu_pcl1], sensors[m].sensor_data[:, mu_pcl2], np.linalg.inv(this_Tms))
-                # Find minimum RMSE error
-                rmse = min([rmse1, rmse2])
-                # Find index of minimum RMSE error
-                idx = [rmse1, rmse2].index(rmse)
-                # Print error to terminal
-                if idx == 0:
-                    print('RMSE ', sensors[l].name, 'to', sensors[m].name, '=', '{: .5f}'.format(rmse))
-                elif idx == 1:
-                    print('RMSE ', sensors[m].name, 'to', sensors[l].name, '=', '{: .5f}'.format(rmse))
-                else: 
-                    raise Exception("Error in print_RMSE_calibration_errors: output index min() impossible")
+                rmse1 = compute_rmse_pcl2pcl(Y1, Y2, this_Tms)
+                rmse2 = compute_rmse_pcl2pcl(Y1, Y2, np.linalg.inv(this_Tms))
+
+                # Print smallest error to terminal
+                if rmse1 < rmse2:
+                    rmse = rmse1
+                    sensor_from = sensor2
+                    sensor_to = sensor1
+                    error_per_item = np.sqrt(square_dist_pcl2pcl(Y1, Y2, this_Tms))
+                else:
+                    rmse = rmse2
+                    sensor_from = sensor1
+                    sensor_to = sensor2
+                    error_per_item = np.sqrt(square_dist_pcl2pcl(Y1, Y2, np.linalg.inv(this_Tms)))
+
+            print('RMSE ', sensor_from.name, 'to', sensor_to.name, '=', '{: .5f}'.format(rmse))
+            print("    Error per item:", {index:round(error_per_item[index],3) for index in np.argsort(-error_per_item)[:20]})
+
+            # Store RMSE in errors list:
+            errors.append(rmse)
+    
+    return errors
 
 def convert_Tms_FPCE(sensors, reference_sensor, Tms_cPE, edges):
     # Convert results in order to visualise results
@@ -189,7 +193,7 @@ def check_valid_inputs(sensors, mode, correspondences, reference_sensor):
     if not valid_reference_sensor:
         raise ValueError('Reference sensor should be one of the following sensors: ' +  str(list_sensor_names))
        
-def joint_optimization(sensors, mode, correspondences, reference_sensor, visualise=False, folder=None):
+def joint_optimization(sensors, mode, correspondences, reference_sensor, visualise=False, folder=None, sensors_to_number=[], sensor_correspondence_to_plot=[], attempt_retry=True):
     """ Estimate sensors transformation matrices based on detection from sensors in struct
 
     Args:
@@ -284,7 +288,7 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
             write_tms_to_launch_file(sensors, Tms, reference_sensor, folder)
 
         if visualise:
-            plot_3D_calibration_result(sensors, Tms)
+            plot_3D_calibration_result(sensors, Tms, sensors_to_number, sensor_correspondence_to_plot)
 
             # Visualise all figures
             plt.show()
@@ -296,7 +300,9 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         print('----------------------------------------------------------')
 
         # Run calibration with MCPE
-        Tms = joint_optimization(sensors, 2, correspondences, reference_sensor, visualise, folder)
+        Tms = joint_optimization(sensors, 2, correspondences, reference_sensor, visualise, folder,
+                                     sensors_to_number=sensors_to_number,
+                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot)
 
     except ValueError as msg_value_error:
         print('----------------------------------------------------------')
@@ -317,7 +323,9 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
             
         # Run calibration with MCPE
-        Tms = joint_optimization(sensors, 2, 'unknown', sensors[index_reference_sensor].name, visualise, folder)
+        Tms = joint_optimization(sensors, 2, 'unknown', sensors[index_reference_sensor].name, visualise, folder,
+                                     sensors_to_number=sensors_to_number,
+                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot)
 
     return Tms
 
