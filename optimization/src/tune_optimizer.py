@@ -117,9 +117,9 @@ if __name__ == '__main__':
     assert sys.version_info.major == 3, 'Python 3 should be used'
 
     # Load pointclouds from lidar (Xl), camera (Xc), and radar Xr
-    csv_file_lidar = 'data/new_detectors/lidar_wo_corners.csv'
-    csv_file_camera = 'data/new_detectors/camera_wo_corners.csv'
-    csv_file_radar = 'data/new_detectors/radar_wo_corners.csv'
+    csv_file_lidar = ['data/new_detectors/lidar_wo_corners.csv']
+    csv_file_camera = ['data/new_detectors/camera_wo_corners.csv']
+    csv_file_radar = ['data/new_detectors/radar_wo_corners.csv']
     csv_file_rcs = None
 
     # Retrieve sensors setup:

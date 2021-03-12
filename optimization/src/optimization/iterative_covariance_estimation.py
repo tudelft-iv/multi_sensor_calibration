@@ -58,21 +58,14 @@ def iterative_covariance_estimation(sensors0, reference_sensor, use_initial, ass
         Tms1 = calibration.convertXtoTms(calibration.getX())
         Xmap1 = calibration.convertX2Poses(calibration.getX())
 
-        Y = []
-        for i in range(len(sensors)):
-            # Map points to each sensor
-            Y.append({
-                'lidar': calibration.project2lidar,
-                'stereo': calibration.project2stereo,
-                'mono': calibration.project2mono,
-                'radar': calibration.project2radar
-            }.get(calibration.sensors[i].type, 'lidar')(Tms1[i], Xmap1, calibration.sensors[i].parameters))
+        Y = calibration.get_projected_sensor_data(Xmap1, Tms1)
 
         # Initialise errors vector
         e = []
         # Compute errors with respect to previously estimated covariances
         for i in range(len(sensors)):
-            delta = Y[i] - sensors[i].sensor_data
+            mu = sensors[i].mu
+            delta = Y[i][:, mu] - sensors[i].sensor_data[:, mu]
             var_sensors = np.var(delta, axis=1)
             sensors[i].W[np.diag_indices_from(sensors[i].W)] = 1 / var_sensors
 

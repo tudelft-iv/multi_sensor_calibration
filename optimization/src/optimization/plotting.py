@@ -21,7 +21,7 @@ from .calibration_board import *
 from .config import *
 from .PSE import *
 from .ransac import *
-from matplotlib2tikz import save as tikz_save
+from tikzplotlib import save as tikz_save
 
 markers = ['o', 'v', '^', '<', '>', 's', '8', 'p']
 colours = ['r', 'g', 'b', 'k', 'm', 'c']
@@ -66,7 +66,7 @@ def extrinsic_mapping(T, xmap):
         return np.dot(T[:3, :], np.vstack([xmap, np.ones([1, xmap.shape[1]])]))  # xmap should contains ones
 
 
-def plot_reference_frame(Tm, ax):
+def plot_reference_frame(Tm, name, ax):
     T = np.linalg.inv(Tm)
     pos = T[:, 3]
     v1 = np.dot(T, np.array([1, 0, 0, 1]))
@@ -76,10 +76,20 @@ def plot_reference_frame(Tm, ax):
     v3 = np.dot(T, np.array([0, 0, 1, 1]))
     ax.plot([pos[0], v3[0]], [pos[1], v3[1]], [pos[2], v3[2]], label='xaxis', c='b')
 
+    ax.text(pos[0], pos[1], pos[2], name, 'x')
     return ax
 
 
-def plot_3D_calibration_result(sensors, Tms):
+def plot_alignment_sensors(ax, sensor1, sensor2, Tm1, Tm2):
+    X, Y = get_aligned_sensor_data(sensor1, sensor2)
+    X = extrinsic_mapping(np.linalg.inv(Tm1), X)
+    Y = extrinsic_mapping(np.linalg.inv(Tm2), Y)
+    all_data = np.stack([X, Y])
+    for line in all_data.transpose(2,1,0):
+        ax.plot3D(line[0], line[1], line[2], 'k')
+
+
+def plot_3D_calibration_result(sensors, Tms, sensors_to_number, sensor_correspondence_to_plot=[]):
     fig = plt.figure('3D visualisation of calibration result')
     ax = fig.add_subplot(111, projection='3d')
     for j in range(len(sensors)):
@@ -88,6 +98,11 @@ def plot_3D_calibration_result(sensors, Tms):
             data = extrinsic_mapping(np.linalg.inv(Tms[j]), sensors[j].sensor_data)
             # Plot it
             ax.scatter(data[0, :], data[1, :], data[2, :], c=colours[j], marker=markers[j], edgecolors=colours[j], label=sensors[j].name)
+            if sensors[j].name in sensors_to_number:
+                for k in range(data.shape[1]):
+                    if np.all(~np.isnan(data[0, k])):
+                        ax.text(data[0, k], data[1, k], data[2, k], str(k), 'x')
+
         else:
             plot_polar_with_eucledian = True
             if sensors[j].parameters == 'polar' or plot_polar_with_eucledian:
@@ -110,7 +125,10 @@ def plot_3D_calibration_result(sensors, Tms):
                     data[1, :] = y
                     data[2, :] = z
                     data = extrinsic_mapping(np.linalg.inv(Tms[j]), data)
+
                     ax.plot(data[0, :], data[1, :], data[2, :], c=colours[j], label=sensors[j].name if i == 0 else "")
+                    if sensors[j].name in sensors_to_number and np.all(~np.isnan(data)):
+                        ax.text(data[0, 0], data[1, 0], data[2, 0], str(i), 'x')
 
             elif sensors[j].parameters == 'eucledian':
                 # Map to base reference frame
@@ -121,10 +139,16 @@ def plot_3D_calibration_result(sensors, Tms):
                 print(sensors[j].data_type)
                 print('Error: unknown plotting mode for radar')
 
+    if len(sensor_correspondence_to_plot) == 2:
+        sensor_dict = {sensor.name: (sensor, Tms[index]) for index, sensor in enumerate(sensors)}
+        sensor1, Tm1 = sensor_dict[sensor_correspondence_to_plot[0]]
+        sensor2, Tm2 = sensor_dict[sensor_correspondence_to_plot[1]]
+        plot_alignment_sensors(ax, sensor1, sensor2, Tm1, Tm2)
+
     plt.legend()
 
     for i in range(len(Tms)):
-        ax = plot_reference_frame(Tms[i], ax)
+        ax = plot_reference_frame(Tms[i], sensors[i].name, ax)
 
     set_axes_equal(ax)
     ax.set_xlabel('X [m]')

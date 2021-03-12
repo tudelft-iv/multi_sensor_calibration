@@ -39,11 +39,11 @@ if __name__ == '__main__':
     parser.add_argument('--calibration-mode', required=True, type=int, help='0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices, 1: Pose and Structure Estimation (PSE) with known observation covariance matrices, 2: Minimally Connected Pose Estimation (MCPE), 3: Fully Connected Pose Estimation (FCPE)')
 
     # path to csv files
-    parser.add_argument('--lidar', type=str, required=True, help='Path to lidar CSV/YAML file')
-    parser.add_argument('--camera', type=str, required=True, help='Path to camera CSV/YAML file')
-    parser.add_argument('--radar', type=str, required=True, help='Path to radar CSV/YAML file')
-    parser.add_argument('--rcs', type=str, default=None, required=False, help='Path to RCS CSV file') #TODO: add option to load as YAML file as well.
-
+    parser.add_argument('--lidar', type=str, action='append', default=[], help='Path to lidar CSV/YAML file')
+    parser.add_argument('--camera', type=str, action='append', default=[], help='Path to camera CSV/YAML file')
+    parser.add_argument('--radar', type=str,action='append', default=[], help='Path to radar CSV/YAML file')
+    parser.add_argument('--rcs', type=str, action='append', default=None, required=False, help='Path to RCS CSV file') #TODO: add option to load as YAML file as well.
+    parser.add_argument('--ignore_file', type=str, default=None, required=False, help="Path to file stating which measurements to ignore")
     # output directory to save yaml
     parser.add_argument('--output-directory', type=str, default="results", help='Path to save output yaml file')
 
@@ -56,12 +56,18 @@ if __name__ == '__main__':
 
     # Visualise results
     parser.add_argument('--visualise', action='store_true', default=False, help='Plot results in 3D plot')
+    parser.add_argument('--sensors_to_number', action='append', default=['camera1'], help='Add numbering to sensor points')
+    parser.add_argument('--plot_correspondence', nargs='+', default=[], help='Plot alignment of two sensor sets')
 
     # Parse arguments
     args = parser.parse_args()
-
+    assert len(args.lidar) + len(args.camera) + len(args.radar) >= 2, \
+                "Optimizer requires at least two sensors. Received the following:\n" \
+                "\tLidars: %s\n" \
+                "\tCameras: %s\n" \
+                "\tRadars: %s" % (args.lidar, args.camera, args.radar)
     # Retrieve sensors setup:
-    sensors, nr_calib_boards = get_sensor_setup(args.lidar, args.camera, args.radar, args.rcs, not args.keep_outliers, args.reorder_detections, args.reorder_method)
+    sensors, nr_calib_boards = get_sensor_setup(args.lidar, args.camera, args.radar, args.rcs, not args.keep_outliers, args.reorder_detections, args.reorder_method, args.ignore_file)
 
     if args.unknown_correspondences:
         # In this case the correspondences between the keypoints of lidar and camera are not known.
@@ -76,4 +82,4 @@ if __name__ == '__main__':
         correpondences = 'known'
 
     # Joint optimization
-    joint_optimization(sensors, args.calibration_mode, correpondences, args.reference_sensor, args.visualise, args.output_directory)
+    joint_optimization(sensors, args.calibration_mode, correpondences, args.reference_sensor, args.visualise, args.output_directory, args.sensors_to_number, args.plot_correspondence)

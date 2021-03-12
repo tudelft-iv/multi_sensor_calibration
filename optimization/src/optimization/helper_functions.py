@@ -48,25 +48,83 @@ class fov_radar:
 
 class Constraint:
     # Define class constraint which can be used for constrained optimization
-    parent = ''  # parent reference frame
-    lb = None  # upper bound wrt to parent
-    ub = None  # lower bound wrt to parent
+    #parent = ''  # parent reference frame
+    #lb = None  # upper bound wrt to parent
+    #ub = None  # lower bound wrt to parent
+
+    def __init__(self, parent, lb, ub):
+        self.parent = parent
+        self.lb = lb
+        self.ub = ub
 
 
 class Sensor:
     # Define class sensor, which contains all sensor data
-    # Initial values, sensor observations, visiblity of target
-    name = ''   # name of this sensor
-    type = ''   # type of sensor: lidar, stereo, mono or radar
-    T = np.identity(4)     # transformation matrix
-    constraints = None  # constraints
-    sensor_data = None  # sensor data containing the obersvations
-    mu = None  # mu is an array that defines if calibration board locations is visible (1) or not (0)
-    fov = None  # Field of View of sensor
-    parameters = None
-    optional = None
-    W = None  # Inverse of measurement covariance matrix
-    link = None  # [Optional]Link name of sensor, as define in URDF (ROS)
+    # Initial values, sensor observations, visibility of target
+    # name = ''   # name of this sensor
+    # type = ''   # type of sensor: lidar, stereo, mono or radar
+    # T = np.identity(4)     # transformation matrix
+    # constraints = None  # constraints
+    # sensor_data = None  # sensor data containing the observations
+    # mu = None  # mu is an array that defines if calibration board locations is visible (1) or not (0)
+    # fov = None  # Field of View of sensor
+    # parameters = None
+    # optional = None
+    # W = None  # Inverse of measurement covariance matrix
+    # link = None  # [Optional]Link name of sensor, as define in URDF (ROS)
+
+    def __init__(self, name, type, constraints, sensor_data, mu, W, link, T=None, fov=None, parameters=None,
+                 optional=None):
+        self.name = name
+        self.type = type
+        self.T = T if T is not None else np.identity(4)
+        self.constraints = constraints
+        self.sensor_data = sensor_data
+        self.fov = fov
+        self.mu = mu
+        self.parameters = parameters
+        self.optional = optional
+        self.W = W
+        self.link = link
+
+    @property
+    def sensor_data_in_3d(self):
+        #Fix self.mu in case it's broken
+        self.mu = ~np.any(np.isnan(self.sensor_data), axis=0)
+        if self.type == 'radar':
+            return np.vstack([self.sensor_data, np.zeros([1, self.sensor_data.shape[1]])])
+        else:
+            return self.sensor_data
+
+
+def get_aligned_sensor_data(sensor1, sensor2, valid_measurements_only=True):
+    # If a sensor is of type radar, make it 3D
+    Y2 = sensor2.sensor_data_in_3d
+    Y1 = sensor1.sensor_data_in_3d
+    mu1 = sensor1.mu
+    mu2 = sensor2.mu
+
+    # if mu1.shape is larger, sensor1 must be downsized to sensor2 size
+    if mu1.shape[0] > mu2.shape[0]:
+        Y1, mu1 = downsample(Y1, mu1, sensor1.type)
+    # if mu2.shape is larger, sensor2 must be downsized to sensor1 size
+    elif mu2.shape[0] > mu1.shape[0]:
+        Y2, mu2 = downsample(Y2, mu2, sensor2.type)
+
+    if valid_measurements_only:
+        # determine which measurements are valid in both sensors
+        mu = np.bitwise_and(mu1, mu2)
+        return Y1[:, mu], Y2[:, mu]
+    else:
+        return Y1, Y2
+
+
+def downsample(Y, mu, sensor_type):
+    downsample_count = get_nr_detection(sensor_type)
+    mu_res = mu.reshape(-1, downsample_count).all(axis=1)
+    Y_res = np.mean(np.reshape(Y, (3, -1, downsample_count)), axis=2)
+    Y_res = Y_res + correct_for_radar_offset(Y, downsample_count, geometry_calibration_board.offset_radar)
+    return Y_res, mu_res
 
 
 def eul2rotm(euler_angles):
@@ -172,6 +230,8 @@ def polar2eucledian_multiple(r, a, e):
 
 
 def get_transformation_matrix_kabsch(q, p):
+    q = q.T
+    p = p.T
     # compute centroids
     Pc = rmsd.centroid(p)
     Qc = rmsd.centroid(q)
@@ -184,6 +244,8 @@ def get_transformation_matrix_kabsch(q, p):
 
 
 def get_transformation_matrix_ICP(q, p, T0=None):
+    q = q.T
+    p = p.T
     if T0 is None:
         T0 = np.identity(4)
         T0[:3, 3] = p.mean(axis=0) - q.mean(axis=0)
@@ -204,7 +266,12 @@ def compute_N_best_matches(q, p, T0, percentage):
 
 
 def rmse(X, Y):
-    return np.sqrt(np.mean(np.sum((X - Y)**2, axis=0)))
+    # Check if shape of X and Y is equal
+    assert(X.shape == Y.shape)
+    # Check if X and Y are 2D
+    assert(X.ndim > 1)
+
+    return np.sqrt(np.nanmean(np.sum((X - Y)**2, axis=0)))
 
 
 def compute_rmse(X, Y, T):
@@ -220,7 +287,34 @@ def transform_with_T(T, xmap):
     return np.dot(T[:3, :], np.vstack([xmap, np.ones([1, xmap.shape[1]])]))  # xmap should contains ones
 
 
-def compute_rmse_pcl2radar(X, Y, T):
+def square_dist_pcl2pcl(X, Y, T):
+    return np.sum((transform_with_T(T, X) - Y) ** 2, axis=0)
+
+def square_dist_pcl2radar(X, Y, T):
+    return np.sum((p(transform_with_T(T, X)) - Y) ** 2, axis=0)
+
+def square_dist_unknown_correspondences(X, Y, T):
+    Yhat = transform_with_T(T, X)
+    # Returns sum squared error
+    aSumSquare = np.sum(Yhat ** 2, axis=0)
+    bSumSquare = np.sum(Y ** 2, axis=0)
+    mul = np.dot(Yhat.T, Y)
+    sq_errors = aSumSquare[:, np.newaxis] + bSumSquare - 2 * mul
+    sq_errors[np.isnan(sq_errors)] = 1e20 #set nan values to something excessively big, so they only get assigned to each other
+    row_ind, col_ind = linear_sum_assignment(sq_errors)
+    return np.sum((Yhat[:, row_ind] - Y[:, col_ind]) ** 2, axis=0)  # sq_errors[row_ind, col_ind].sum()
+
+def compute_rmse_pcl2radar2(X, Y, T, return_per_item_error=False):
+    Yhat0 = transform_with_T(T, X)
+    Yhat = p(Yhat0)
+
+    if return_per_item_error:
+        return rmse(Yhat, Y), np.sqrt(np.sum((Yhat - Y)**2, axis=0))
+    else:
+        return rmse(Yhat, Y)
+
+
+def compute_rmse_pcl2radar(X, Y, T): # TODO make this function obsolete, rename
     Yhat0 = transform_with_T(T, target2radar3D(X))
     Yhat = p(Yhat0)
 
@@ -228,19 +322,10 @@ def compute_rmse_pcl2radar(X, Y, T):
 
 
 def compute_rmse_pcl2pcl_unknown_assignment(X, Y, T):
-    Yhat = np.dot(T, np.vstack([X, np.ones((1, X.shape[1]))]))[:3, :]
-    return np.sqrt(np.mean(np.sum(compute_error_unknown_correspondences(Yhat, Y)**2, axis=0)))
+    error = square_dist_unknown_correspondences(X, Y, T)
+    return np.sqrt(np.nanmean(error))
 
 
-def compute_error_unknown_correspondences(a, b):
-    # Returns sum squared error
-    aSumSquare = np.sum(a**2, axis=0)
-    bSumSquare = np.sum(b**2, axis=0)
-    mul = np.dot(a.T, b)
-    sq_errors = aSumSquare[:, np.newaxis] + bSumSquare - 2 * mul
-    row_ind, col_ind = linear_sum_assignment(sq_errors)
-
-    return a[:, row_ind] - b[:, col_ind]  # sq_errors[row_ind, col_ind].sum()
 
 
 def rotm2rodrigues(R):
@@ -268,8 +353,7 @@ def rodrigues2rotm(v):
     else:
         v = v / theta
         ux = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-        uxx = np.array([[v[0] * v[0], v[0] * v[1], v[0] * v[2]], [v[1] * v[0], v[1] * v[1], v[1] * v[2]], [v[2] * v[0], v[2] * v[1], v[2] * v[2]]])
-        R = np.cos(theta) * np.identity(3) + np.sin(theta) * ux + (1 - np.cos(theta)) * uxx
+        R = np.cos(theta) * np.identity(3) + np.sin(theta) * ux + (1 - np.cos(theta)) * np.outer(v, v)
 
     return R
 
@@ -310,7 +394,7 @@ def compute_calibration_board_poses(xmap, nr_detections, point_correspondences_b
     # Loop over all CB
     for i in range(nr_cb):
         # Compute initial poses by using kabsch or ICP
-        if point_correspondences_board is 'unknown':
+        if point_correspondences_board == 'unknown':
             # The correspondeces are unknown
             # Assumption:
             # - the calibration target is a planar surface with at least 3 detections
@@ -331,10 +415,10 @@ def compute_calibration_board_poses(xmap, nr_detections, point_correspondences_b
             T[:3, 3] = np.mean(xmap[:, i * nr_detections:i * nr_detections + nr_detections] - np.dot(T, np.vstack([cb, np.ones((1, nr_detections))]))[:3, :], axis=1)
 
             # Refine previous estimate by using ICP to find a beter estimate of T calibration board
-            T = get_transformation_matrix_ICP(cb.T, xmap[:, i * nr_detections:i * nr_detections + nr_detections].T, T)
+            T = get_transformation_matrix_ICP(cb, xmap[:, i * nr_detections:i * nr_detections + nr_detections], T)
         else:
             # The correspondeces are known
-            T = get_transformation_matrix_kabsch(cb.T, xmap[:, i * nr_detections:i * nr_detections + nr_detections].T)
+            T = get_transformation_matrix_kabsch(cb, xmap[:, i * nr_detections:i * nr_detections + nr_detections])
 
         xb[i * nr_elements_pose:i * nr_elements_pose + nr_elements_pose] = np.concatenate([rotm2vector(T[:3, :3]), T[:3, 3]])
 
@@ -346,10 +430,10 @@ def compute_transformation_matrix(p, q, T0, correspondences, assignment_mode=0):
         # Unknown correpondences for detections of the calibration board.
         if assignment_mode == 0:
             # [Default] In this case the centroids of the calibraiton board are used to obtain initial estimate of T
-            p0 = get_detection_centroid(np.transpose(p))
-            q0 = get_detection_centroid(np.transpose(q))
+            p0 = get_detection_centroid(p)
+            q0 = get_detection_centroid(q)
             # Compute T1 using centroids:
-            T1 = get_transformation_matrix_kabsch(np.transpose(p0), np.transpose(q0))
+            T1 = get_transformation_matrix_kabsch(p0, q0)
             # Compute final T using all points:
             T = get_transformation_matrix_ICP(p, q, T1)
         elif assignment_mode == 1:
@@ -437,24 +521,22 @@ def get_indices(a,b):
 
     return row_ind, col_ind
 
-def reorder_detections(data_sensor, data_reference):
+def reorder_detections(sensor_other, sensor_reference):
     # Check if reference sensors contains mu = False
-    if np.any(data_reference.mu==False):
+    if np.any(sensor_reference.mu==False):
         raise ValueError("The reference sensor data contains calibration board locations which are not visible (mu = False). This results in that reordering detection based on the reference sensor is not possible.")
 
     # Find common detections to compute transformation matrix
-    mu_common = np.logical_and(data_sensor.mu, data_reference.mu)
-    mu_sensor = mu_common[data_sensor.mu] # Detections for first pointcloud
-    mu_reference = mu_common[data_reference.mu] # Detections for second pointcloud
+    data_other, data_reference = get_aligned_sensor_data(sensor_other, sensor_reference)
 
     # Compute transformation matrix using Kabsch
-    T = get_transformation_matrix_kabsch(get_centroids(data_sensor.sensor_data[:,mu_sensor],4).T, get_centroids(data_reference.sensor_data[:,mu_reference], 4).T)
+    T = get_transformation_matrix_kabsch(get_centroids(data_other,4), get_centroids(data_reference, 4))
 
     # Get optimal indices
-    _,new_indices = get_indices(data_reference.sensor_data,transform_with_T(T, data_sensor.sensor_data))
+    _, new_indices = get_indices(data_reference, transform_with_T(T, data_other))
 
     # Reorder data using indices
-    new_data_sensor = data_sensor.sensor_data[:,new_indices]
+    new_data_sensor = data_other[:, new_indices]
 
     return new_data_sensor,new_indices
 
@@ -490,7 +572,7 @@ def reorder_detections_sensors(sensors, reordering_mode, reference_sensor):
                 # Get this board detections
                 this_board_detections = sensors[index_reference_sensor].sensor_data[:, j * nr_detections:j * nr_detections + nr_detections]
                 # Get transformation matrix
-                T = get_transformation_matrix_ICP(cb.T, this_board_detections.T, np.identity(4))
+                T = get_transformation_matrix_ICP(cb, this_board_detections, np.identity(4))
                 # Get correct indices:
                 _,new_indices = get_indices(cb,transform_with_T(T, this_board_detections))
                 # Reorder all detection and mus:
@@ -501,7 +583,7 @@ def reorder_detections_sensors(sensors, reordering_mode, reference_sensor):
 
     # Loop over all sensors and reindex detections such that top-left, top-rigth, bottom-left, bottom-right detection of alll senesors (lidar & camera) match
     for i in range(len(sensors)):
-        if sensors[i].type is 'radar':
+        if get_nr_detection(sensors[i].type) == 1:
             # In this case sensor is radar and we only have a single detection so we do not have to reorder it.
             pass
         else:
@@ -511,7 +593,9 @@ def reorder_detections_sensors(sensors, reordering_mode, reference_sensor):
                 sensors[i].sensor_data = reorder_pcl(sensors[i].sensor_data, get_nr_detection(sensors[i].type), sensors[i].type)
             elif reordering_mode == 'based_on_reference_sensor':
                 # Reindex based on reference sensor
-                sensors[i].sensor_data,_ = reorder_detections(sensors[i], sensors[index_reference_sensor])
+
+                sensors[i].sensor_data[:, sensors[i].mu],_ = reorder_detections(sensors[i], sensors[index_reference_sensor])
+
             else:
                 pass
 

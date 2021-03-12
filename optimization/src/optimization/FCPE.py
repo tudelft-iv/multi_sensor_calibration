@@ -69,100 +69,60 @@ class FCPE:
         self.mono_projection_method = 'eucledian'
         self.assignment = correspondences
         self.parameters_optimizer = optimizer_parameters
-        self.edges = list(itertools.combinations([x for x in range(len(sensors))], 2))
+        self.edges = self._get_edges(sensors)
         self.X = np.zeros(self.nr_elements_pose * len(self.edges))
         if initialise_poses:  # TODO: rename to initialise inverse of poses since we are using transformation matrices
             self.initiate_tms()
 
+    @staticmethod
+    def _get_edges(sensors):
+        # if one of the sensors is of type 'radar', put it right.
+        res = []
+        for left, right in list(itertools.combinations([x for x in range(len(sensors))], 2)):
+            if sensors[left].type == 'radar':
+                res.append((right, left))
+            else:
+                res.append((left, right))
+        return res
+
     def getX(self):
         return self.X
 
+    def get_sensors(self, edge):
+        return self.sensors[edge[0]], self.sensors[edge[1]]
+
+
     def initiate_tms(self):
         X = np.zeros(self.nr_elements_pose * len(self.edges))
-        for i in range(int(len(self.edges))):
-            this_pair = self.edges[i]
-            if self.sensors[this_pair[0]].type != 'radar' and self.sensors[this_pair[1]].type != 'radar':
-                # Find union of mus
-                mu = self.get_mu_union_pcl_and_pcl(self.sensors[this_pair[0]].mu, self.sensors[this_pair[1]].mu)
-                # Get common detections
-                Y1 = self.sensors[this_pair[0]].sensor_data[:, mu[self.sensors[this_pair[0]].mu]]
-                Y2 = self.sensors[this_pair[1]].sensor_data[:, mu[self.sensors[this_pair[1]].mu]]
-                # Estimate transformation matrix
-                T = compute_transformation_matrix(Y1.T, Y2.T, None, self.assignment)
-            else:
-                # Find index of radar and index of non radar
-                radar_index = this_pair[0] if self.sensors[this_pair[0]].type == 'radar' else this_pair[1]
-                not_radar_index = this_pair[1] if self.sensors[this_pair[0]].type == 'radar' else this_pair[0]
+        for i, edge in enumerate(self.edges):
+            sensor1, sensor2 = self.get_sensors(edge)
+            Y1, Y2 = get_aligned_sensor_data(sensor1, sensor2)
 
-                # Find union of mus
-                mu_radar, mu_pcl = self.get_mu_union_radar_and_pcl(self.sensors[radar_index].mu, self.sensors[not_radar_index].mu, get_nr_detection(self.sensors[not_radar_index].type))
+            assignment_mode = 1 if sensor2.type == 'radar' else 0
+            transform = compute_transformation_matrix(Y1, Y2, None, self.assignment, assignment_mode)
 
-                # Get common detections
-                Y_radar = self.sensors[radar_index].sensor_data[:, mu_radar[self.sensors[radar_index].mu]]
-                Y_pcl = self.sensors[not_radar_index].sensor_data[:, mu_pcl[self.sensors[not_radar_index].mu]]
-
-                # Estimate transformation matrix
-                pcl_radar = np.vstack([Y_radar, np.zeros([1, Y_radar.shape[1]])])
-                T = compute_transformation_matrix(target2radar3D(Y_pcl).T, pcl_radar.T, None, self.assignment, 1)
-
-                # We map to radar, edges should be defined correctly
-                self.edges[i] = (not_radar_index, radar_index)
-
-            angles = rotm2vector(T[: 3, : 3])
-            translation = T[: 3, 3]
+            angles = rotm2vector(transform[: 3, : 3])
+            translation = transform[: 3, 3]
             nr_rot_vars = int(self.nr_elements_pose / 2)
             X[i * self.nr_elements_pose: i * self.nr_elements_pose + nr_rot_vars] = angles
             X[i * self.nr_elements_pose + nr_rot_vars: i * self.nr_elements_pose + self.nr_elements_pose] = translation
 
         self.X = X
 
-    def get_mu_union_pcl_and_pcl(self, mu1, mu2):
-        # Assumption: both lidar and camera have same number of detections
-        mu = np.logical_and(mu1, mu2)
-        return mu
-
-    def get_mu_union_radar_and_pcl(self, mu_radar, mu_pcl, nr_detections_lidar_camera):
-        # Assumption: radar has one detection per calibration board.
-        mu_radar_out = np.full((len(mu_radar)), False, dtype=bool)
-        mu_pcl_out = np.full((len(mu_pcl)), False, dtype=bool)
-        for indices_mu in range(len(mu_radar)):
-            if np.all(mu_pcl[indices_mu * nr_detections_lidar_camera: indices_mu * nr_detections_lidar_camera + nr_detections_lidar_camera]) and mu_radar[indices_mu]:
-                # Remove element for mus
-                mu_pcl_out[indices_mu * nr_detections_lidar_camera: indices_mu * nr_detections_lidar_camera + nr_detections_lidar_camera] = True
-                mu_radar_out[indices_mu] = True
-            else:
-                # Remove element for mus
-                mu_pcl_out[indices_mu * nr_detections_lidar_camera: indices_mu * nr_detections_lidar_camera + nr_detections_lidar_camera] = False
-                mu_radar_out[indices_mu] = False
-        return mu_radar_out, mu_pcl_out
-
     def function_combinatorial(self, X):
         Tms = self.convertXtoTms(X)
 
         e = np.zeros(len(self.edges))
-        for i in range(len(self.edges)):
-            this_pair = self.edges[i]
-            if self.sensors[this_pair[0]].type != 'radar' and self.sensors[this_pair[1]].type != 'radar':
-                # Find union of mus
-                mu = self.get_mu_union_pcl_and_pcl(self.sensors[this_pair[0]].mu, self.sensors[this_pair[1]].mu)
-                # Get common detections
-                Y1 = self.sensors[this_pair[0]].sensor_data[:, mu[self.sensors[this_pair[0]].mu]]
-                Y2 = self.sensors[this_pair[1]].sensor_data[:, mu[self.sensors[this_pair[1]].mu]]
+        for i, edge in enumerate(self.edges):
+            sensor1, sensor2 = self.get_sensors(edge)
+
+            Y1, Y2 = get_aligned_sensor_data(sensor1, sensor2)
+            if sensor2.type != 'radar':
                 # Compute errors
                 e[i] = self.compute_error_pcl2pcl(Y1, Y2, Tms[i])
             else:
-                # Find index of radar and index of non radar
-                radar_index = this_pair[0] if self.sensors[this_pair[0]].type == 'radar' else this_pair[1]
-                not_radar_index = this_pair[1] if self.sensors[this_pair[0]].type == 'radar' else this_pair[0]
-                # Find union of mus
-                mu_radar, mu_pcl = self.get_mu_union_radar_and_pcl(self.sensors[radar_index].mu, self.sensors[not_radar_index].mu, get_nr_detection(self.sensors[not_radar_index].type))
-                # Get common detections
-                Y_radar = self.sensors[radar_index].sensor_data[:, mu_radar[self.sensors[radar_index].mu]]
-                Y_pcl = self.sensors[not_radar_index].sensor_data[:, mu_pcl[self.sensors[not_radar_index].mu]]
                 # Compute errors
-                e[i] = self.compute_error_pcl2radar(Y_pcl, Y_radar, Tms[i])
-                # We map to radar, edges should be defined correctly
-                self.edges[i] = (not_radar_index, radar_index)
+                e[i] = np.sum(square_dist_pcl2radar(Y1, Y2, Tms[i]))
 
         # Only sum valid edges
         # --> invalid are the ones without enough common detections
@@ -178,17 +138,13 @@ class FCPE:
         # Define loop_matrix
         loop_matrix = np.identity(4)
 
-        # Current loop consists of the following nodes
-        circle = list(loop)
-        circle.append(circle[0])
-        for k in range(len(circle) - 1):
-            from_index = circle[k]
-            to_index = circle[k + 1]
+        # loop over [(loop[0], loop[1]), (loop[1], loop[2]) ... (loop[-1], loop[0])]
+        for from_index, to_index in zip(loop, loop[1:]+loop[:1]):
             # find index of edge
-            try:
+            if (from_index, to_index) in self.edges:
                 index = self.edges.index((from_index, to_index))
                 T = Tms[index]
-            except:
+            else:
                 index = self.edges.index((to_index, from_index))
                 T = self.tm_inverse(Tms[index])
 
@@ -264,63 +220,39 @@ class FCPE:
         eq_identity_constraint_t = {'type': 'eq', 'fun': lambda x: self.equality_identity_constraint_translation(x)}
 
         # Normal constrained optimization
-        result = optimize.minimize(self.function_combinatorial, self.X, method='SLSQP', jac=None, constraints=[eq_identity_constraint_r, eq_identity_constraint_t, fov_constraint], options={'maxiter': self.parameters_optimizer.maximum_iterations, 'disp': self.parameters_optimizer.verbosity}, tol=self.parameters_optimizer.stopping_tolerance)
+        result = optimize.minimize(self.function_combinatorial, self.X, method='SLSQP', jac=None, constraints=[eq_identity_constraint_t, fov_constraint], options={'maxiter': self.parameters_optimizer.maximum_iterations, 'disp': self.parameters_optimizer.verbosity}, tol=self.parameters_optimizer.stopping_tolerance)
+        result = optimize.minimize(self.function_combinatorial, result.x, method='SLSQP', jac=None, constraints=[eq_identity_constraint_r, eq_identity_constraint_t, fov_constraint], options={'maxiter': self.parameters_optimizer.maximum_iterations, 'disp': self.parameters_optimizer.verbosity}, tol=self.parameters_optimizer.stopping_tolerance)
         self.X = result.x
 
         # Warning if optimizer did not succeed
         print_optimizer_slsqp_feedback(result)
 
-    def transform_with_T(self, T, xmap):
-        return np.dot(T[:3, :], np.vstack([xmap, np.ones([1, xmap.shape[1]])]))  # xmap should contains ones
-
-    def compute_error_pcl2radar(self, xmap, radar, T):
-        Y0 = transform_with_T(T, target2radar3D(xmap))
-        X = p(Y0)
-
-        return np.sum(np.sum((X[: 2, :] - radar)**2, axis=0))
-
-    def a2b_assignment(self, a, b, W):
-        # Returns sum squared error
-        aSumSquare = np.sum(a**2, axis=0)
-        bSumSquare = np.sum(b**2, axis=0)
-        mul = np.dot(a.T, b)
-        sq_errors = aSumSquare[:, np.newaxis] + bSumSquare - 2 * mul
-        row_ind, col_ind = linear_sum_assignment(sq_errors)
-
-        return np.sum(np.dot(W, (a[:, row_ind] - b[:, col_ind])**2))  # sq_errors[row_ind, col_ind].sum()
-
     def compute_error_pcl2pcl(self, X, Y, T):
-        Yhat = np.dot(T, np.vstack([X, np.ones((1, X.shape[1]))]))[:3, :]
-        # return np.sum(np.sum((Yhat - Y)**2, axis=0))
         if self.assignment == 'known':
-            return np.sum(np.sum((Yhat - Y)**2, axis=0))
+            return np.sum(square_dist_pcl2pcl(X, Y, T))
         else:
-            return self.a2b_assignment(Yhat, Y, np.identity(3))
+            return np.sum(square_dist_unknown_correspondences(X, Y, T))
 
     def radar_fov_constraint(self, X):
         Tms = self.convertXtoTms(X)
 
         all_constraint = np.array([])
-        for i in range(len(self.edges)):
-            this_pair = self.edges[i]
-            if self.sensors[this_pair[0]].type != 'radar' and self.sensors[this_pair[1]].type != 'radar':
+        for i, edge in enumerate(self.edges):
+            sensor1, sensor2 = self.get_sensors(edge)
+            if sensor2.type != 'radar':
                 pass
             else:
-                # Find index of radar and index of non radar
-                radar_index = this_pair[0] if self.sensors[this_pair[0]].type == 'radar' else this_pair[1]
-                not_radar_index = this_pair[1] if self.sensors[this_pair[0]].type == 'radar' else this_pair[0]
-                # Find common mus
-                mu_radar, mu_pcl = self.get_mu_union_radar_and_pcl(self.sensors[radar_index].mu, self.sensors[not_radar_index].mu, get_nr_detection(self.sensors[not_radar_index].type))
-                # Map PCL to radar and determin range, elevation angle and azimuth angle
-                Y_pcl = self.sensors[not_radar_index].sensor_data[:, mu_pcl[self.sensors[not_radar_index].mu]]
-                Xr = np.dot(Tms[i], np.vstack([target2radar3D(Y_pcl), np.ones((1, target2radar3D(Y_pcl).shape[1]))]))
-                r, a, e = eucledian2polar_multiple(Xr[:3,:])
+                Y_pcl, Y_radar = get_aligned_sensor_data(sensor1, sensor2)
+
+                # Map PCL to radar and determine range, elevation angle and azimuth angle
+                Xr = np.dot(Tms[i], np.vstack([Y_pcl, np.ones((1, Y_pcl.shape[1]))]))
+                _, _, elevation = eucledian2polar_multiple(Xr[:3,:])
 
                 # Get upper bound and lower bound
-                lb = -self.sensors[radar_index].fov.max_elevation
-                ub = self.sensors[radar_index].fov.max_elevation
-                c_lb = e - lb
-                c_ub = ub - e
+                lb = -sensor2.fov.max_elevation
+                ub = sensor2.fov.max_elevation
+                c_lb = elevation - lb
+                c_ub = ub - elevation
                 # colllect all constraints
                 all_constraint = np.append(all_constraint, c_lb)
                 all_constraint = np.append(all_constraint, c_ub)

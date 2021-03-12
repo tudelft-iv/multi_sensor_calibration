@@ -79,6 +79,7 @@ class PSE:
         self.assignment = correspondences
         self.name_radar_refinement = None
         self.method_xmap_modelling = model_xmap
+        self.xmap_map = self.set_mapping(self.method_xmap_modelling)
         self.offset_radar = geometry_calibration_board.offset_radar
         self.parameters_optimizer = optimizer_parameters
 
@@ -88,6 +89,22 @@ class PSE:
         # Refine initials for sensor poses
         if initialise_poses:
             self.X = self.compute_pairwise_poses(self.X)
+
+    @staticmethod
+    def set_mapping(method_xmap_modelling):
+        if method_xmap_modelling == 'pose6D':
+            mapping = {"radar3D":  poses2radar3D,
+                       "lidar": poses2lidar,
+                       "stereo": poses2stereo,
+                       "mono": poses2monocular,
+                       "radar": poses2radar3D}
+        elif method_xmap_modelling=='3D':
+            mapping = {"radar3D": target2radar3D,
+                       "lidar": target2lidar,
+                       "stereo": target2stereo,
+                       "mono": target2monocular,
+                       "radar": target2radar3D}
+        return mapping
 
     def get_inititial_poses_and_structure(self, sensors, xmap0):
         # Get initial X from sensors struct
@@ -104,7 +121,7 @@ class PSE:
                         xmap = np.vstack([xmap_tiled, np.zeros([1, xmap_tiled.shape[1]])])
                         nr_detections = 4 # TODO: remove hardcoded
                     else:
-                        # Reference sensors is a idar or a camera
+                        # Reference sensors is a lidar or a camera
                         # Use reference sensor data for xmap
                         xmap = self.sensors[i].sensor_data
                         nr_detections = get_nr_detection(self.sensors[i].type)
@@ -321,18 +338,18 @@ class PSE:
         Xinit = X
         # Estimate all poses with respect to reference sensor
         n = 0
-        for i in range(self.getNrSensors()):
-            if self.reference_sensor != self.sensors[i].name:
+        for current_sensor, Tm in zip(self.sensors, Tms):
+            if self.reference_sensor != current_sensor.name:
                 start_index, end_index, step_size = self.getIndicesForPose(n)
 
                 # Compute T for sensor type:
-                if self.sensors[i].type == 'radar':
+                if current_sensor.type == 'radar':
                     # Radar sensor
-                    if self.sensors[i].parameters == 'eucledian':
-                        pcl_radar = np.vstack([self.sensors[i].sensor_data, np.zeros([1, self.sensors[i].sensor_data.shape[1]])])
-                    elif self.sensors[i].parameters == 'polar':
-                        pcl_radar = np.zeros(3, self.sensors[i].sensor_data.shape[1])
-                        pcl_radar[0, :], pcl_radar[1, :], pcl_radar[2, :] = polar2eucledian_multiple(self.sensors[i].sensor_data[0, :], self.sensors[i].sensor_data[1, :], self.sensors[i].sensor_data[2, :])
+                    if current_sensor.parameters == 'eucledian':
+                        pcl_radar = np.vstack([current_sensor.sensor_data, np.zeros([1, current_sensor.sensor_data.shape[1]])])
+                    elif current_sensor.parameters == 'polar':
+                        pcl_radar = np.zeros(3, current_sensor.sensor_data.shape[1])
+                        pcl_radar[0, :], pcl_radar[1, :], pcl_radar[2, :] = polar2eucledian_multiple(current_sensor.sensor_data[0, :], current_sensor.sensor_data[1, :], current_sensor.sensor_data[2, :])
                     else:
                         raise Exception('Unknown radar projection method')
 
@@ -340,34 +357,16 @@ class PSE:
                         Xcenter = poses2radar3D(xmap, self.offset_radar)
                     elif self.method_xmap_modelling == '3D':
                         Xcenter = target2radar3D(xmap, self.offset_radar)
-
-                    T = compute_transformation_matrix(np.transpose(Xcenter[:, self.sensors[i].mu]), np.transpose(pcl_radar), Tms[i], self.assignment, 1)
-                elif self.sensors[i].type == 'lidar':
-                    # Lidar sensor:
-                    if self.method_xmap_modelling == 'pose6D':
-                        X_hat = np.transpose(poses2lidar(xmap)[:, self.sensors[i].mu])
-                    elif self.method_xmap_modelling == '3D':
-                        X_hat = np.transpose(target2lidar(xmap)[:, self.sensors[i].mu])
-
-                    T = compute_transformation_matrix(X_hat, np.transpose(self.sensors[i].sensor_data), Tms[i],self.assignment)
-                elif self.sensors[i].type == 'stereo':
-                    # Stereo camera sensor:
-                    if self.method_xmap_modelling == 'pose6D':
-                        X_hat = np.transpose(poses2stereo(xmap)[:, self.sensors[i].mu])
-                    elif self.method_xmap_modelling == '3D':
-                        X_hat = np.transpose(target2stereo(xmap)[:, self.sensors[i].mu])
-
-                    T = compute_transformation_matrix(X_hat, np.transpose(self.sensors[i].sensor_data), Tms[i],self.assignment)
-                elif self.sensors[i].type == 'mono':
-                    # Monocular camera sensor:
-                    if self.method_xmap_modelling == 'pose6D':
-                        X_hat = np.transpose(poses2monocular(xmap)[:, self.sensors[i].mu])
-                    elif self.method_xmap_modelling == '3D':
-                        X_hat = np.transpose(target2monocular(xmap)[:, self.sensors[i].mu])
-
-                    T = compute_transformation_matrix(X_hat, np.transpose(self.sensors[i].sensor_data), Tms[i], self.assignment)
+                    T = compute_transformation_matrix(Xcenter[:, current_sensor.mu], pcl_radar, Tm, self.assignment, 1)
                 else:
-                    raise Exception('Unknown sensor type')
+                    if current_sensor.type not in self.xmap_map.keys():
+                        raise Exception(f'Unknown sensor type: {current_sensor.type} in sensor named {current_sensor.name}')
+
+                    X_hat = self.xmap_map[current_sensor.type](xmap)
+
+                    T = compute_transformation_matrix(X_hat[:, current_sensor.mu],
+                                                      current_sensor.sensor_data[:, current_sensor.mu],
+                                                      Tm, self.assignment)
 
                 # Store sensor pose into  X:
                 angles = rotm2vector(T[:3, :3])
@@ -412,22 +411,20 @@ class PSE:
         else:
             raise Exception('project2mono unknown method')
 
-    def project2radar(self, T, xmap, sensor_parameters):
+    def project2radar3D(self, T, xmap, sensor_parameters):
+        return self.project2radar(T, xmap, sensor_parameters, do_3d=True)
+
+    def project2radar(self, T, xmap, sensor_parameters, do_3d=False):
         if self.method_xmap_modelling == 'pose6D':
             Xr = self.extrinsic_mapping(T, poses2radar3D(xmap, self.offset_radar))
         elif self.method_xmap_modelling == '3D':
             Xr = self.extrinsic_mapping(T, target2radar3D(xmap, self.offset_radar))
 
-        Xr = p(Xr)
-        Yr = np.zeros([2, int(Xr.shape[1])])
-
         if sensor_parameters == 'eucledian':
-            Yr[0, :] = Xr[0, :]
-            Yr[1, :] = Xr[1, :]
+            Yr = Xr if do_3d else p(Xr)[:2,:]
         elif sensor_parameters == 'polar':
             r, a, e = eucledian2polar_multiple(Xr)
-            Yr[0, :] = r
-            Yr[1, :] = a
+            Yr = np.stack((r, a, e)) if do_3d else np.stack((r, a))
         else:
             raise Exception('Radar sensor_parameters is undefined')
 
@@ -443,30 +440,35 @@ class PSE:
 
         return np.sum(np.dot(W, (a[:, row_ind] - b[:, col_ind])**2), axis=0)  # sq_errors[row_ind, col_ind].sum()
 
-    def compute_sensor_errors(self, Y, data, mus, type, W):
+    def compute_sensor_errors(self, Y, data, mus, W):
         if self.assignment == 'known':
-            e = np.sum(np.dot(W, (Y[:, mus] - data)**2), axis=0)
+            e = np.sum(np.dot(W, (Y[:, mus] - data[:, mus])**2), axis=0)
         else:
-            e = self.a2b_assignment(Y[:, mus], data, W)  # in our case: radar is not needed to do it, but for generalisation kept in
+            e = self.a2b_assignment(Y[:, mus], data[:, mus], W)  # in our case: radar is not needed to do it, but for generalisation kept in
 
         return e
 
     def compute_total_error(self, errors):
         return np.sum(errors)
 
-    def compute_calibration_errors(self, xmap, Tms):
+    def get_projected_sensor_data(self, xmap, Tms):
+        type_map = {
+            'lidar': self.project2lidar,
+            'stereo': self.project2stereo,
+            'mono': self.project2mono,
+            'radar': self.project2radar,
+            'radar3D': self.project2radar3D
+        }
         Y = []
-        errors = []
-        for i in range(self.getNrSensors()):
+        for sensor, Tm in zip(self.sensors, Tms):
             # Map points to each sensor
-            Y.append({
-                'lidar': self.project2lidar,
-                'stereo': self.project2stereo,
-                'mono': self.project2mono,
-                'radar': self.project2radar
-            }.get(self.sensors[i].type, 'lidar')(Tms[i], xmap, self.sensors[i].parameters))
+            Y.append(type_map[sensor.type](Tm, xmap, sensor.parameters))
+        return Y
 
-            errors.append(self.compute_sensor_errors(Y[i], self.sensors[i].sensor_data, self.sensors[i].mu, self.sensors[i].type, self.sensors[i].W))
+    def compute_calibration_errors(self, xmap, Tms):
+        errors = []
+        for Y, sensor in zip(self.get_projected_sensor_data(xmap, Tms), self.sensors):
+            errors.append(self.compute_sensor_errors(Y, sensor.sensor_data, sensor.mu, sensor.W))
         return errors
 
     def objective_function(self, X):

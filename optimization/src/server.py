@@ -153,11 +153,15 @@ class optimizer_node():
                 sensor = get_lidar(Xl)
             elif 'radar' in sensor_topic_type:
                 pcl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('radar'))
-                Xr = pcl[:2, :]
-                rcs = pcl[2, :]
+                # the third axis will be zero for 2D radars
+                if np.all(pcl[2, :] == 0):
+                    Xr = pcl[:2, :]
+                else:
+                    Xr = pcl
+                #rcs = pcl[2, :]
 
                 # Setup sensors struct
-                sensor = get_radar(Xr, rcs)
+                sensor = get_radar(Xr, None)
             else:
                 raise ValueError('ROS topic name should contain one the the four keywords: stereo, mono, lidar, radar')
 
@@ -190,10 +194,11 @@ class optimizer_node():
             # ValueError 1: reference sensor is not defined
             # ValueError 2: reference sensor contains non visible detection therefore reordering cannot be done for those calibration board locations
 
-            # Pick first sensors as reference sensor for reindexing:
+            # Pick sensor as reference sensor for reindexing:
             for i in range(len(sensors)):
                 if sensors[i].type is not 'radar':
                     index_reference_sensor = i
+                    break
             # Remove all non visible detections in reference sensors such that we can reorder based on that
             sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
             # Retry reordering based on reindex using reference sensor

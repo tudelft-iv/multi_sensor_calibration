@@ -100,7 +100,9 @@ if __name__ == "__main__":
     radar_path = 'src/clr_calibration/optimization/data/radar_all.csv'
     rcs_path = 'src/clr_calibration/optimization/data/rcs_values_all.csv'
     # Load data
-    Xl, Xc, Xr, rcs = load_data(lidar_path, camera_path, radar_path, rcs_path)
+    Xl = load_lidar(lidar_path)
+    Xc = load_camera(camera_path)
+    Xr, rcs = load_radar(radar_path, rcs_path)
 
     # Convert radar data (detections and RCS) to numpy array
     z = np.zeros((3, Xr.shape[1]))
