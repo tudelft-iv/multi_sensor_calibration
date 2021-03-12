@@ -32,6 +32,7 @@ import timeit
 import copy
 import scipy.io
 from .iterative_covariance_estimation import iterative_covariance_estimation
+import threading
 
 # List with names for feedback to the user
 all_optimization_modes = ['PSE (with unknown observation covariance matrices)', 
@@ -290,8 +291,12 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         if visualise:
             plot_3D_calibration_result(sensors, Tms, sensors_to_number, sensor_correspondence_to_plot)
 
-            # Visualise all figures
-            plt.show()
+            if isinstance(threading.current_thread(), threading._MainThread):
+                # Visualise all figures
+                plt.show()
+            else:
+                print("Saving figure in %s" % folder)
+                plt.savefig(folder + "/figure.png")
             
     except NotImplementedError as msg_not_implemented_error:
         print('----------------------------------------------------------')
@@ -300,9 +305,10 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         print('----------------------------------------------------------')
 
         # Run calibration with MCPE
-        Tms = joint_optimization(sensors, 2, correspondences, reference_sensor, visualise, folder,
+        if attempt_retry:
+            Tms = joint_optimization(sensors, 2, correspondences, reference_sensor, visualise, folder,
                                      sensors_to_number=sensors_to_number,
-                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot)
+                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot, attempt_retry=False)
 
     except ValueError as msg_value_error:
         print('----------------------------------------------------------')
@@ -323,9 +329,10 @@ def joint_optimization(sensors, mode, correspondences, reference_sensor, visuali
         sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
             
         # Run calibration with MCPE
-        Tms = joint_optimization(sensors, 2, 'unknown', sensors[index_reference_sensor].name, visualise, folder,
+        if attempt_retry:
+            Tms = joint_optimization(sensors, 2, 'unknown', sensors[index_reference_sensor].name, visualise, folder,
                                      sensors_to_number=sensors_to_number,
-                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot)
+                                     sensor_correspondence_to_plot=sensor_correspondence_to_plot, attempt_retry=False)
 
     return Tms
 
