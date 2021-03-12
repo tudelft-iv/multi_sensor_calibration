@@ -37,6 +37,8 @@ private:
 	float max_RCS_;
 	float min_range_object_;
 	float max_range_object_;
+	bool select_range_;
+	bool select_min_;
 
 	/// Ros Node Handle to communicate with ros server
 	ros::NodeHandle nh_;

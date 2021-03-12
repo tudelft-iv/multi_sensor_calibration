@@ -22,14 +22,25 @@ The _stereo_detector_ publishes two messages:
 - _stereo_pattern_: point cloud with the four circle centers
 - _stereo_pattern_markers_: visualization marker with the 4 circle centers in order to visualize the detections in RVIZ.
 
-# Radar detector
+# Radar detector (2D or 3D)
 The _radar_detector_ node subscribes to a ROS topic with the name: /radar_converter/detections. This ROS topic has a message type: radar_msgs::RadarDetectionArray. We assume that X longitudinal and Y is lateral in the radar_msgs::RadarDetectionArray.
+The detector can work with both 2D and 3D radars, but range is determined only by longitudinal (X) and lateral (Y) position. 
+
+You can define a minimum and maximum allowed range and RCS using ROS parameters. Within that RCS+range window, you can choose to select the actual detection either based on lowest/highest range, or lowest/higher RCS. For an example, see the launch file [here](multi_sensor_calibration_launch/launch/detectors.launch). The full list of parameters is as follows:
+```
+minimum_RCS:float, default: -inf
+maximum_RCS:float, default: inf
+min_range_object:float, default: -inf
+max_range_object:float, default: inf
+selection_basis:[rcs or range], default:range
+selection_criterion:[min or max], default:min
+```
+
 
 This node publishes two messages:
 - _radar_pattern_: point cloud with the calibration board detection (of reflector)
 - _radar_marker_: visualization marker with the radar detection. This marker can be visualized in RViz. The vertical shape indicates the detection of the reflector at elevation angle equal 0 degrees.
 
-Note: the _z_ field in the radar point cloud (_radar_pattern_) contains the Radar Cross Section (RCS) value.
 # Monocular detector
 The _mono_detector_ node subscribes to four ROS topics:
 - /ueye/left/image_rect_color: type: sensor_msgs::Image message

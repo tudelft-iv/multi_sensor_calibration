@@ -59,11 +59,11 @@ The overview of the components in the calibration tool are visualized in the fol
 The next steps need to be performed to calibrate your sensor setup.
 
 #### Update parameters in YAML files.
-For each detector, the YAML file is used to define the parameters of the detector. For instance the geometry of the calibration board is defined in here:
+For each detector except for the radar detector, the YAML file is used to define the parameters of the detector:
 - Lidar Detector:  lidar_detector/config/config.yaml
 - Stereo Detector: stereo_detector/config/config.yaml
 - Mono Detector:   mono_detector/config/config.yaml
-- Radar detector: the ROS parameters are defined to detect the specific return from the trihedral corner reflector (minimum and maximum RCS and calibration range).
+- Radar detector: configuration is determined as ROS parameters (example [here](multi_sensor_calibration_launch/launch/detectors.launch)). Specifically, one can specify a min and max range and RCS, as well as define the selection criteria within that range (i.e. choose to select the highest/lowest range/RCS). 
 
 Note that we provide some additional information about the detectors in: [detectors](docs/detectors.md).
 

@@ -24,10 +24,18 @@
 
 
 namespace radar_detector {
+    const std::string RCS_BASED_SELECTION = "rcs";
+    const std::string RANGE_BASED_SELECTION = "range";
+    const std::string SELECT_MAX =  "max";
+    const std::string SELECT_MIN =  "min";
 
-
-// TODO: min should be std::numeric_limits<float>::lowest()
-pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, float const min = -std::numeric_limits<float>::max(), float const max = std::numeric_limits<float>::max(), float const min_range = -std::numeric_limits<float>::max(), float const max_range = std::numeric_limits<float>::max());
+pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in,
+                                float const min = std::numeric_limits<float>::lowest(),
+                                float const max = std::numeric_limits<float>::max(),
+                                float const min_range = std::numeric_limits<float>::lowest(),
+                                float const max_range = std::numeric_limits<float>::max(),
+                                bool const select_range = true,
+                                bool const select_min = true);
 
 
 }
