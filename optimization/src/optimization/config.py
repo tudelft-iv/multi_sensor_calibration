@@ -26,8 +26,8 @@ def get_ransac_parameters():
     this_ransac.probability_success = 0.99
     this_ransac.probability_inlier = 0.7
     # This threshold is defined as maximum error of mapping from base sensor to sensor defined in dictionary
-    this_ransac.threshold = {'lidar': 1E-6, 'stereo': 0.01, 'mono': 0.01, 'radar': 0.01}
-    this_ransac.min_nr_boards = {'lidar': 1, 'stereo': 1, 'mono': 1, 'radar': 3}
+    this_ransac.threshold = {'lidar': 1E-6, 'stereo': 0.01, 'mono': 0.01, 'radar': 0.01, 'radar3D': 0.01}
+    this_ransac.min_nr_boards = {'lidar': 1, 'stereo': 1, 'mono': 1, 'radar': 3, 'radar3D': 1}
 
     return this_ransac
 
@@ -84,7 +84,11 @@ def get_radar(Xr, rcs, sensor_name="radar1"):
     radar_fov = fov_radar()
     radar_fov.max_elevation = 9 * math.pi / 180
 
-    radar_type = 'radar'
+    # Check whether the z-axis is all zeros, as this indicates a 2D radar which erroneously has 3D measurements.
+    if Xr.shape[0] == 3 and np.all(Xr[2, :] == 0):
+        Xr = Xr[:2, :]
+
+    radar_type = 'radar' if Xr.shape[0] != 3 else 'radar3D'
     radar_sensor = Sensor(name=sensor_name,
                           type=radar_type,
                           constraints=radar_constraint,

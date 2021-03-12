@@ -153,11 +153,15 @@ class optimizer_node():
                 sensor = get_lidar(Xl)
             elif 'radar' in sensor_topic_type:
                 pcl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('radar'))
-                Xr = pcl[:2, :]
-                rcs = pcl[2, :]
+                # the third axis will be zero for 2D radars
+                if np.all(pcl[2, :] == 0):
+                    Xr = pcl[:2, :]
+                else:
+                    Xr = pcl
+                #rcs = pcl[2, :]
 
                 # Setup sensors struct
-                sensor = get_radar(Xr, rcs)
+                sensor = get_radar(Xr, None)
             else:
                 raise ValueError('ROS topic name should contain one the the four keywords: stereo, mono, lidar, radar')
 

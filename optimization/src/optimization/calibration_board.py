@@ -40,6 +40,8 @@ def board2map(T):
 def get_nr_detection(type):
     if type == 'radar':
         nr_detections = 1
+    elif type == 'radar3D':
+        nr_detections = 1
     else:
         nr_detections = 4
 
