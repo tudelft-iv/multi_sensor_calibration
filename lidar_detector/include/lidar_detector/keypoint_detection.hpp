@@ -34,23 +34,27 @@
 
 #include "config.hpp"
 
-/// Velodyne point type containing ring information like in original guindal code and in velodyne driver
-namespace Velodyne {
-	struct Point {
+
+/// Generic point type with field to store distance, and ring number. No other information is used
+/// In this lidar detector library, so no other field is necessary in struct below.
+namespace Lidar {
+	struct PointWithDist {
 		PCL_ADD_POINT4D; ///< quad-word XYZ
-		float intensity; ///< laser intensity reading
+
+		float distance; ///< place to store the distance
 		uint16_t ring; ///< laser ring number
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW ///< ensure proper alignment
 	} EIGEN_ALIGN16;
 }
 
+// Note that the following does not map to the float 'distance', as that is written to internally.
 POINT_CLOUD_REGISTER_POINT_STRUCT(
-	Velodyne::Point, (float, x, x) (float, y, y) (float, z, z)
-		(float, intensity, intensity) (uint16_t, ring, ring));
+	Lidar::PointWithDist, (float, x, x) (float, y, y) (float, z, z)
+		(uint16_t, ring, ring));
 
 namespace lidar_detector {
 
 /// Main function to delete calibration board pose from lidar (velodyne) point cloud
-pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Velodyne::Point> const & cloud, Configuration const & config);
+pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Lidar::PointWithDist> const & cloud, Configuration const & config);
 
 }

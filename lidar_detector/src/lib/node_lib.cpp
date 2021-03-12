@@ -33,9 +33,14 @@ namespace {
 		marker.action = visualization_msgs::Marker::ADD;
 		marker.type = visualization_msgs::Marker::SPHERE;
 		marker.color.g = 1;
+		marker.color.a = 1.0;
+		marker.scale.x = 0.2;
+		marker.scale.y = 0.2;
+		marker.scale.z = 0.2;
 		marker.pose.position.x = point.x;
 		marker.pose.position.y = point.y;
 		marker.pose.position.z = point.z;
+		marker.pose.orientation.w = 1.0;
 		return marker;
 	}
 }
@@ -56,7 +61,7 @@ LidarDetectorNode::LidarDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
 void LidarDetectorNode::callback(sensor_msgs::PointCloud2ConstPtr const & in) {
 	ROS_INFO_ONCE("Receiving lidar point clouds.");
 	try {
-		pcl::PointCloud<Velodyne::Point> cloud;
+		pcl::PointCloud<Lidar::PointWithDist> cloud;
 		pcl::fromROSMsg(*in, cloud);
 		pcl::PointCloud<pcl::PointXYZ> pattern = keypointDetection(cloud, config_);
 		sensor_msgs::PointCloud2 out;
@@ -76,7 +81,9 @@ void LidarDetectorNode::publishMarker(
 ) {
 	visualization_msgs::MarkerArray markers;
 	for (std::size_t i = 0; i < pattern.size(); ++i) {
-		markers.markers.push_back(toMarker(pattern.at(i), header));
+	    auto marker = toMarker(pattern.at(i), header);
+	    marker.id = i;
+		markers.markers.push_back(marker);
 	}
 	sphere_marker_publisher_.publish(markers);
 }
