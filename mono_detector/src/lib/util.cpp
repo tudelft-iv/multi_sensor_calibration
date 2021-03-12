@@ -121,7 +121,7 @@ void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv
 	std::string window_name = "result";
 	cv::namedWindow(window_name, CV_WINDOW_NORMAL);
 	cv::imshow(window_name, draw);
-	cv::waitKey();
+	cv::waitKey(100);
 }
 
 std::vector<double> compute_median_circle(std::vector<cv::Vec3f> const & circles) { 
