@@ -31,3 +31,4 @@ Our calibration board consists of:
 # Recommendations
 In this section, we have listed recommendations related to the calibration board:
 - The calibration board is light (a few kilograms) and big, so special care should be taken if the calibration board is used outdoors. Wind could overturn the calibration board. We recommend to calibrate your sensors indoors.
+- We recommend to make the circles as large as possible, because in that case you will have more lidar detections on the edge of the circles.

@@ -42,7 +42,7 @@ The following packages need to be installed:
     apt-get install python3-sklearn  
     pip3 install rmsd
     pip3 install rospkg
-    pip3 install matplotlib2tikz
+    pip3 install tikzplotlib
 ```
 Clone our _multi_sensor_calibration_ package to the src folder as well. After that, build catkin workspace:
 ```
@@ -59,11 +59,11 @@ The overview of the components in the calibration tool are visualized in the fol
 The next steps need to be performed to calibrate your sensor setup.
 
 #### Update parameters in YAML files.
-For each detector, the YAML file is used to define the parameters of the detector. For instance the geometry of the calibration board is defined in here:
+For each detector except for the radar detector, the YAML file is used to define the parameters of the detector:
 - Lidar Detector:  lidar_detector/config/config.yaml
 - Stereo Detector: stereo_detector/config/config.yaml
 - Mono Detector:   mono_detector/config/config.yaml
-- Radar detector: the ROS parameters are defined to detect the specific return from the trihedral corner reflector (minimum and maximum RCS and calibration range).
+- Radar detector: configuration is determined as ROS parameters (example [here](multi_sensor_calibration_launch/launch/detectors.launch)). Specifically, one can specify a min and max range and RCS, as well as define the selection criteria within that range (i.e. choose to select the highest/lowest range/RCS). 
 
 Note that we provide some additional information about the detectors in: [detectors](docs/detectors.md).
 
@@ -194,12 +194,17 @@ In addition, you will see the following figure appearing:
 <img src="docs/figure_example_1.png" alt="drawing" width="400"/>
 
 ### Optimizer
-In the second example, we will run the optimizer with csv files as input. Go to the folder containing our calibration tool code:
+In the following two examples, we will run the optimizer with csv files as input. The first showcases a basic optimization in which all calibration board detections were succesful. 
+The second showcases what to do when some calibration board detections were unsuccesful.
+
+#### Optimization with solely correct detections
+
+Go to the folder containing our calibration tool code:
 ```
 cd optimization/
 python3 src/main.py --lidar data/example_data/lidar.csv --camera data/example_data/camera.csv --radar data/example_data/radar.csv --calibration-mode 3 --visualise
 ```
-You should see the following result:
+You should see the following result, indicating the overall Root Mean Square Error between every two sensors, as well as the 20 largest errors per item, sorted by size:
 ```
 ----------------------------------------------------------------
 Optimizing your sensor setup using FPCE
@@ -207,21 +212,105 @@ Optimizing your sensor setup using FPCE
 -------------------------------------
 Optimization terminated successfully!
 -------------------------------------
-RMSE  lidar1 to camera1 =  0.01525
+RMSE  camera1 to lidar1 =  0.01525
+    Error per item: {86: 0.038, 87: 0.036, 82: 0.031, 83: 0.031, 74: 0.03, 10: 0.027, 11: 0.027, 96: 0.026, 81: 0.025, 80: 0.024, 85: 0.022, 75: 0.021, 103: 0.021, 68: 0.021, 70: 0.021, 84: 0.019, 93: 0.019, 37: 0.019, 7: 0.018, 18: 0.018}
 RMSE  lidar1 to radar1 =  0.01427
+    Error per item: {24: 0.033, 25: 0.027, 1: 0.026, 2: 0.021, 12: 0.021, 0: 0.02, 26: 0.019, 23: 0.016, 5: 0.015, 6: 0.015, 22: 0.012, 15: 0.012, 19: 0.011, 21: 0.01, 18: 0.009, 8: 0.009, 11: 0.008, 4: 0.008, 10: 0.008, 28: 0.007}
 RMSE  camera1 to radar1 =  0.02111
+    Error per item: {24: 0.046, 25: 0.038, 1: 0.031, 23: 0.031, 0: 0.031, 12: 0.028, 6: 0.024, 26: 0.024, 21: 0.021, 2: 0.021, 11: 0.021, 15: 0.02, 5: 0.02, 20: 0.019, 17: 0.018, 22: 0.018, 28: 0.016, 4: 0.013, 9: 0.013, 27: 0.012}
 ```
+
 In addition, you will see the following figure, with all 29 calibration board locations in a grid:
 
 <img src="docs/figure_example_2.png" alt="drawing" width="400"/>
 
+#### Optimization with partially incorrect detections
+
+In the following example, the fifth and sixth radar detections have been translated, as well as the first and final set of four lidar detections. 
+Run the following command:
+```
+python3 src/main.py --lidar data/example_data/lidar_with_error.csv --camera data/example_data/camera.csv --radar data/example_data/radar_with_error.csv --calibration-mode 3 --visualise --sensors_to_number radar1 --plot_correspondence radar1 lidar1
+```
+You should see the following result, indicating the overall Root Mean Square Error between every two sensors, as well as the 20 largest errors per item, sorted by size:
+```
+----------------------------------------------------------------
+Optimizing your sensor setup using FPCE
+----------------------------------------------------------------
+-------------------------------------
+Optimization terminated successfully!
+-------------------------------------
+RMSE  camera1 to lidar1 =  0.99894
+    Error per item: {112: 3.69, 114: 3.677, 113: 3.649, 115: 3.639, 0: 3.611, 2: 3.608, 3: 3.578, 1: 3.578, 97: 0.469, 99: 0.468, 85: 0.458, 87: 0.453, 67: 0.445, 65: 0.444, 23: 0.443, 41: 0.441, 21: 0.44, 43: 0.437, 96: 0.432, 98: 0.429}
+RMSE  lidar1 to radar1 =  1.36084
+    Error per item: {6: 4.79, 28: 3.612, 0: 3.51, 5: 1.267, 21: 0.609, 16: 0.567, 20: 0.54, 10: 0.524, 15: 0.5, 19: 0.484, 24: 0.484, 9: 0.448, 14: 0.434, 18: 0.417, 4: 0.408, 8: 0.374, 23: 0.369, 17: 0.362, 13: 0.354, 3: 0.323}
+RMSE  camera1 to radar1 =  0.94077
+    Error per item: {6: 4.884, 5: 1.139, 21: 0.186, 20: 0.175, 18: 0.171, 19: 0.17, 16: 0.168, 14: 0.159, 15: 0.158, 17: 0.156, 10: 0.154, 13: 0.151, 9: 0.149, 11: 0.145, 8: 0.144, 0: 0.136, 24: 0.136, 4: 0.134, 7: 0.132, 3: 0.125}
+```
+The overall RMSE is high, and the error per item shows that only a few detections are causing it. In the camera to radar correspondence, there is a high error on the 5th and 6th correspondence. In the lidar to radar correspondence, it is the 5th, 6th as well as the first and final. For the camera to lidar, it is the 112th to 115th location, as well as the 0th to 3rd: as both camera and lidar detections come in sets of four, this means it's the first and final set of four lidar to camera correspondences.
+
+The visualisation now also shows the index of the radar detections, along with the correspondence between each radar detection and lidar detection. This further shows that the culprits are two faulty radar detections and two faulty sets of lidar detections.
+
+<img src="docs/figure_example_bad_detections.png" alt="drawing" width="400"/>
+
+Loading a YAML file (found [here](optimization/data/example_data/ignored_measurements.yaml)) that defines which boards to ignore is done as follows:
+```
+python3 src/main.py --lidar data/example_data/lidar_with_error.csv --camera data/example_data/camera.csv --radar data/example_data/radar_with_error.csv --ignore_file data/example_data/ignored_measurements.yaml --calibration-mode 3 --visualise --sensors_to_number radar1 --plot_correspondence radar1 lidar1
+```
+
+Which results in a lower error and a better calibration:
+```
+----------------------------------------------------------------
+Optimizing your sensor setup using FPCE
+----------------------------------------------------------------
+-------------------------------------
+Optimization terminated successfully!
+-------------------------------------
+RMSE  camera1 to lidar1 =  0.01545
+    Error per item: {82: 0.038, 83: 0.036, 78: 0.031, 79: 0.031, 70: 0.03, 6: 0.027, 7: 0.027, 92: 0.026, 77: 0.025, 76: 0.024, 81: 0.022, 64: 0.021, 66: 0.021, 71: 0.021, 99: 0.021, 89: 0.02, 80: 0.019, 33: 0.019, 14: 0.018, 3: 0.018}
+RMSE  lidar1 to radar1 =  0.01413
+    Error per item: {21: 0.033, 22: 0.026, 0: 0.026, 1: 0.021, 9: 0.02, 23: 0.019, 20: 0.017, 19: 0.012, 12: 0.011, 16: 0.01, 18: 0.01, 7: 0.009, 15: 0.009, 3: 0.008, 8: 0.008, 5: 0.008, 4: 0.007, 11: 0.007, 6: 0.007, 13: 0.006}
+RMSE  camera1 to radar1 =  0.02102
+    Error per item: {22: 0.047, 23: 0.037, 21: 0.033, 0: 0.032, 1: 0.031, 10: 0.026, 24: 0.023, 9: 0.02, 2: 0.02, 19: 0.02, 13: 0.019, 20: 0.019, 15: 0.019, 18: 0.018, 26: 0.018, 4: 0.014, 25: 0.013, 7: 0.012, 8: 0.011, 5: 0.01}
+```
+
+Note that ignoring the largest errors will always reduce the RMSE, and as such a lower error does not directly translate into a better calibration. Use the above only for removing outliers.
+
+#### Optimization with more multiple sensors of the same modality
+The current setup allows for multiple sensors of the same modality. In the following example, 3D radar detections have been simulated by computing their expected position using the camera detections. The following command optimizes four sensors at once (of which two radar), using MPCE:  
+```
+python3 src/main.py --lidar data/example_data/lidar.csv --camera data/example_data/camera.csv --radar data/example_data/radar.csv --radar data/example_data/radar_3D.csv --calibration-mode 2 --visualise
+```
+As a result, you get the error between every set of sensors. As `radar_3D.csv` was added second, it is referred to as `radar2` in the bottom output.  
+
+```
+----------------------------------------------------------------
+Optimizing your sensor setup using MCPE
+----------------------------------------------------------------
+-------------------------------------
+Optimization terminated successfully!
+-------------------------------------
+RMSE  camera1 to lidar1 =  0.01525
+    Error per item: {86: 0.038, 87: 0.036, 82: 0.031, 83: 0.031, 74: 0.03, 10: 0.028, 11: 0.027, 96: 0.026, 81: 0.025, 80: 0.024, 85: 0.022, 75: 0.021, 68: 0.021, 70: 0.021, 103: 0.021, 84: 0.019, 93: 0.019, 37: 0.019, 7: 0.019, 18: 0.019}
+RMSE  lidar1 to radar1 =  0.01965
+    Error per item: {24: 0.039, 1: 0.037, 25: 0.036, 2: 0.028, 12: 0.028, 0: 0.026, 26: 0.026, 6: 0.025, 5: 0.024, 21: 0.021, 23: 0.019, 11: 0.019, 10: 0.016, 22: 0.015, 16: 0.014, 4: 0.013, 7: 0.013, 19: 0.012, 9: 0.012, 28: 0.011}
+RMSE  radar2 to lidar1 =  0.01276
+    Error per item: {21: 0.023, 17: 0.022, 20: 0.019, 2: 0.017, 25: 0.016, 19: 0.016, 16: 0.016, 23: 0.015, 1: 0.014, 0: 0.013, 24: 0.013, 11: 0.013, 12: 0.012, 18: 0.012, 22: 0.011, 26: 0.011, 27: 0.01, 15: 0.01, 6: 0.01, 9: 0.01}
+RMSE  camera1 to radar1 =  0.02642
+    Error per item: {24: 0.052, 25: 0.047, 1: 0.042, 0: 0.038, 23: 0.034, 6: 0.034, 12: 0.034, 11: 0.031, 26: 0.03, 17: 0.029, 5: 0.029, 21: 0.028, 2: 0.026, 22: 0.02, 28: 0.02, 10: 0.02, 20: 0.019, 15: 0.019, 16: 0.018, 4: 0.018}
+RMSE  camera1 to radar2 =  0.00271
+    Error per item: {24: 0.005, 23: 0.005, 22: 0.005, 12: 0.004, 0: 0.004, 28: 0.004, 27: 0.004, 26: 0.004, 25: 0.004, 5: 0.003, 4: 0.003, 3: 0.003, 2: 0.003, 1: 0.003, 10: 0.002, 9: 0.002, 8: 0.002, 7: 0.002, 6: 0.002, 16: 0.001}
+RMSE  radar2 to radar1 =  0.02642
+    Error per item: {24: 0.052, 25: 0.047, 1: 0.042, 0: 0.038, 23: 0.034, 6: 0.034, 12: 0.034, 11: 0.031, 26: 0.03, 17: 0.029, 5: 0.028, 21: 0.028, 2: 0.026, 22: 0.02, 28: 0.02, 10: 0.02, 20: 0.02, 15: 0.019, 16: 0.018, 4: 0.018}
+```
+Note that as `radar2` was simulated using the 3D data from `camera1`, the error `camera1 to radar2` is practically zero.
 ## Frequently Asked Questions (FAQ)
 
 ### My sensor setup is different from your example. Can I calibrate my sensor setup?
-Yes, you can. For that, you need to start a detector for every sensor (see [detectors](docs/detectors.md)). The accumulator needs to know which topics need to be recorded. The ROS topics can be set using _sensors_topic_ which is a ROS parameter. Currently the toolbox only accommodates sensors with overlapping field of view.
+Yes, you can. The only requirement is that you have at least one 3D sensor. 
+In that case, you need to start a detector for every sensor (see [detectors](docs/detectors.md)). The accumulator needs to know which topics need to be recorded. The ROS topics can be set using _sensors_topic_ which is a ROS parameter. 
 
 ### Can I calibrate sensors with only partial overlapping field of view?
-Yes, you should be able to dot it, however there are some limitations and it has not been tested extensively. The accumulator returns point cloud with NaNs in case the detector didn't detect something. The optimizer is able to deal with missing detections of a sensor.
+Yes, you should be able to do it, however there are some limitations and it has not been tested extensively. The accumulator returns point cloud with NaNs in case the detector didn't detect something. The optimizer is able to deal with missing detections of a sensor.
 
 For that, currently you need to use:
 - At least one sensor should be able to see all calibration board locations. This means that for this sensor all calibration board locations are visible (aka all mu should be equal to true). Choose this sensor as reference sensor. A lidar is often a good choice as reference sensor since it has a (often) 360 degrees sensing.
@@ -233,7 +322,8 @@ The toolbox contains two methods to determine the correspondences. The first met
 (Additionally, the optimization configurations are also able to determine the correspondences during optimization, however it is not recommended since it takes more time.)
 
 ## Road map
-- [ ] Test option to calibrate sensors with partial overlapping field of view:
+- [ ] Test option to calibrate sensors with partial overlapping field of view.
+- [ ] Include option to compute radar to radar errors in all configuration.
 - [ ] Remove PCL warnings in _lidar_detector_.
 
 ## License
