@@ -257,17 +257,17 @@ bool processCircle(
 	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 	seg.setInputCloud(cloud.makeShared());
 	pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-	seg.segment(*inliers, *coefficients);
+    try	{
+	    seg.segment(*inliers, *coefficients);
+    }catch (std::exception & e) {
+        //Segmentation failed!
+        return false;
+    }
 
-	// Filter point cloud
-	pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-	extract.setInputCloud(cloud.makeShared());
-	extract.setIndices(inliers);
-	extract.setNegative(true);
-	extract.filter(cloud);
 
 	if (inliers->indices.size() == 0) {
-		throw std::runtime_error("Could not estimate a circle fit for stereo camera edge cloud.");
+	    return false;
+		//throw std::runtime_error("Could not estimate a circle fit for stereo camera edge cloud.");
 	}
 
 	// Return center
@@ -276,6 +276,12 @@ bool processCircle(
 	center.z = *(coefficients->values.begin()+2);
 
 	if (pointsWithinRadius(center, cloud, radius_max_points) <= max_points_within_radius) {
+		// Filter point cloud
+        pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+        extract.setInputCloud(cloud.makeShared());
+        extract.setIndices(inliers);
+        extract.setNegative(true);
+        extract.filter(cloud);
 		return true;
 	}
 	return false;
