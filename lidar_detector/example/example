@@ -19,20 +19,7 @@
 
 #!/bin/bash
 
-# README: Make sure you source clr_calibration and run this on ubuntu 16.04 and ros kinetic.
-# The singularity image can be used for this. The singularity script is provided in this repository.
-
-# Immediately exit on failure
-set -euxo pipefail
-
-# Find lidar_detector package directory
-DIR=`rospack find lidar_detector`
-
-# Copy the file lidar.pcd from the sftp
-if [[ ! -f $DIR/lidar.pcd ]]; then
-	sftp sftp.tudelft.nl:/staff-bulk/3me/cor/IV/rmensing/lidar/* `rospack find lidar_detector`
-fi
-
 rosrun lidar_detector lidar_detector_cli \
-	`rospack find lidar_detector`/lidar.pcd \
-	`rospack find lidar_detector`/config/config.yaml
+	`rospack find lidar_detector`/example/lidar.pcd \
+	`rospack find lidar_detector`/config/config.yaml \
+	`rospack find lidar_detector`/example/out.pcd 
