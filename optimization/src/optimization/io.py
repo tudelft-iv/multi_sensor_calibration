@@ -95,7 +95,7 @@ def read_data_from_folder(mypath, dim1=None, dim2=None):
 
 def read_yaml_ignore_file(name):
     with open(name, 'r') as stream:
-        data = yaml.load(stream)
+        data = yaml.load(stream, Loader=yaml.SafeLoader)
     return data
 
 
