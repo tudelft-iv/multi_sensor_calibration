@@ -360,7 +360,7 @@ class PSE:
                     T = compute_transformation_matrix(Xcenter[:, current_sensor.mu], pcl_radar, Tm, self.assignment, 1)
                 else:
                     if current_sensor.type not in self.xmap_map.keys():
-                        raise Exception(f'Unknown sensor type: {current_sensor.type} in sensor named {current_sensor.name}')
+                        raise Exception('Unknown sensor type: %s in sensor named %s' % (current_sensor.type, current_sensor.name))
 
                     X_hat = self.xmap_map[current_sensor.type](xmap)
 
