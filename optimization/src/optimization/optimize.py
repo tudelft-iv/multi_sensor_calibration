@@ -73,7 +73,8 @@ def print_RMSE_calibration_errors(sensors, reference_sensor, Tms):
             Y1, Y2 = get_aligned_sensor_data(sensor1, sensor2, valid_measurements_only=True)
             if sensor1.type == 'radar' and sensor2.type == 'radar':
                 # TODO: implement radar to radar errors
-                pass
+                print("Cannot show error from %s to %s, radar to radar error not yet implemented." % (sensor1.name, sensor2.name))
+                continue
             elif sensor1.type == 'radar':
                 # Tms is always from sensor to radar
                 rmse, error_per_item = compute_rmse_pcl2radar2(Y2, Y1, this_Tms, return_per_item_error=True)
