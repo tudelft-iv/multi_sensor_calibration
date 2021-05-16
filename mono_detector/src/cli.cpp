@@ -113,6 +113,10 @@ int main(int argc, char * * argv) {
 
 	// Load object points
 	std::vector<cv::Point3f> object_points = YAML::LoadFile(argv[4]).as<std::vector<cv::Point3f>>();
+	cv::Point3f center = calculateCenter(object_points);
+	std::sort(object_points.begin(), object_points.end(), [center](cv::Point3f a, cv::Point3f b) {
+		return std::atan((a.y - center.y) / (a.x - center.x)) > std::atan((b.y - center.y) / (b.x - center.x));
+	});
 
 	// Run detection algorithm
 	std::vector<cv::Point2f> image_points;

@@ -85,7 +85,7 @@ Eigen::Isometry3f solvePose(
 	cv::Mat intrinsic_matrix = cv::Mat(intrinsics.intrinsicMatrix()); //Note: we assume rectified images
 
 	// Solve pose using known points
-	if (!solvePnP(object_points, detectionToMat(image_points), intrinsic_matrix, intrinsics.distortionCoeffs(), rvec, tvec, false)) {
+	if (!solvePnP(object_points, detectionToMat(image_points), intrinsic_matrix, 0*intrinsics.distortionCoeffs(), rvec, tvec, false)) {
 		throw std::runtime_error("Unable to solve PnP");
 	}
 
