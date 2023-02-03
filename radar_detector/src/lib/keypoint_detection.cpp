@@ -16,23 +16,29 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sensor_msgs/point_cloud2_iterator.h>
 #include "keypoint_detection.hpp"
 
 
 namespace radar_detector {
 
-pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, float const min, float const max,
+pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in, float const min, float const max,
                                         float const min_range, float const max_range,
                                         bool const select_range, bool const select_min) {
 	pcl::PointXYZ point;
 	float best_candidate_value = select_min ? std::numeric_limits<float>::max():std::numeric_limits<float>::lowest();
-	std::vector<radar_msgs::RadarDetection> vector_detections = in.detections;
-	for (auto detection:vector_detections) {
 
-		float x = detection.position.x;
-		float y = detection.position.y;
+	std::size_t n_points = (*in).width;
+	sensor_msgs::PointCloud2ConstIterator<float> iter_x(*in, "x");
+	sensor_msgs::PointCloud2ConstIterator<float> iter_y(*in, "y");
+	sensor_msgs::PointCloud2ConstIterator<float> iter_z(*in, "z");
+	sensor_msgs::PointCloud2ConstIterator<float> iter_rcs(*in, "RCS");
+	for (std::size_t i = 0; i < n_points; ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rcs) {
+
+		float x = *iter_x;
+		float y = *iter_y;
 		float range = sqrt(x*x+y*y); // compute range using x and y
-		float rcs = detection.amplitude; // RCS value
+		float rcs = *iter_rcs; // RCS value
 		// select the best candidate either based on range or on rcs
 		float selection = select_range ? range : rcs;
 		// the best candidate can be either the lowest or the highest value
@@ -41,7 +47,7 @@ pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, floa
 			best_candidate_value = selection;
 			point.x = x;
 			point.y = y;
-			point.z = detection.position.z;
+			point.z = *iter_z;
 		}
 	}
 	return point;

@@ -62,10 +62,10 @@ def get_pcl_sensor(msg, nr_detections):
 
 class optimizer_node():
     """ Optimizer node that receives service call from accumulator with all the detections and calls optimizer to compute all sensor poses
-    
+
     ROS parameters:
         - calibration_mode
-        
+
     """
 
     def __init__(self):
@@ -92,7 +92,7 @@ class optimizer_node():
         print('Received service call!')
 
         # Parameters for Joint Optimization:
-        calibration_mode = rospy.get_param("~calibration_mode")  
+        calibration_mode = rospy.get_param("~calibration_mode")
         # Possible calibration modes:
             # 0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices
             # 1: Pose and Structure Estimation (PSE) with known observation covariance matrices
@@ -177,7 +177,7 @@ class optimizer_node():
 
             # Append sensor in list
             sensors.append(sensor)
-        
+
         # Get nr calibration boards in this recording
         nr_calib_boards = int(len(sensors[0].mu) / get_nr_detection(sensors[0].type))
 
@@ -196,16 +196,16 @@ class optimizer_node():
 
             # Pick sensor as reference sensor for reindexing:
             for i in range(len(sensors)):
-                if sensors[i].type is not 'radar':
+                if sensors[i].type != 'radar':
                     index_reference_sensor = i
                     break
             # Remove all non visible detections in reference sensors such that we can reorder based on that
             sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
             # Retry reordering based on reindex using reference sensor
             sensors = reorder_detections_sensors(sensors, 'based_on_reference_sensor', sensors[index_reference_sensor].name)
-        
+
         return sensors, nr_calib_boards
-    
+
 if __name__ == "__main__":
     # Start optimizer ROS node:
     optimizer_node()

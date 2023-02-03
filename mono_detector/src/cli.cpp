@@ -98,7 +98,7 @@ int main(int argc, char * * argv) {
 
 	// Read image
 	std::string image_file_name = argv[1];
-	cv::Mat image = cv::imread(image_file_name, CV_LOAD_IMAGE_GRAYSCALE);
+	cv::Mat image = cv::imread(image_file_name, cv::IMREAD_GRAYSCALE);
 	if (image.empty()) {
 		std::cout << "Cannot open file: '" << image_file_name << "'." << std::endl;
 		return 1;

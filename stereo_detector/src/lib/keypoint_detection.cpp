@@ -82,7 +82,7 @@ pcl::PointCloud<pcl::PointXYZRGB> crop(pcl::PointCloud<pcl::PointXYZRGB> const &
 
 /// Visualize the image based region-of-interest
 void drawRoi(cv::Mat const & image, cv::Rect const & roi) {
-	cv::namedWindow("roi", CV_WINDOW_NORMAL);
+	cv::namedWindow("roi", cv::WINDOW_NORMAL);
 	cv::Mat draw = image.clone();
 	if (draw.channels() == 1) {
 		cv::cvtColor(draw, draw, cv::COLOR_GRAY2BGR);
@@ -401,7 +401,7 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
 	cv::Mat edge_image;
 	cv::Canny(image_roi, edge_image, config.canny.min, config.canny.max);
 	if (config.visualize) {
-		cv::namedWindow("image", CV_WINDOW_NORMAL);
+		cv::namedWindow("image", cv::WINDOW_NORMAL);
 		cv::imshow("image", edge_image);
 		cv::waitKey();
 	}

@@ -121,7 +121,7 @@ void visualize(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
 	pcl::visualization::PCLVisualizer viewer;
 	for (std::size_t i = 0; i < rings.size(); ++i) {
 		pcl::PointCloud<pcl::PointXYZ> cloud = toCloud(rings.at(i));
-		viewer.addPointCloud<pcl::PointXYZ>(cloud.makeShared(), boost::to_string(i));
+		viewer.addPointCloud<pcl::PointXYZ>(cloud.makeShared(), boost::lexical_cast<std::string>(i));
 		viewer.spin();
 	}
 	viewer.addCoordinateSystem();

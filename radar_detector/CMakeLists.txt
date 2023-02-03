@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(radar_detector)
 
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 find_package(catkin REQUIRED
 	cmake_modules
@@ -10,7 +10,6 @@ find_package(catkin REQUIRED
 	roscpp
 	sensor_msgs
 	visualization_msgs
-	radar_msgs
 )
 
 find_package(OpenCV REQUIRED)

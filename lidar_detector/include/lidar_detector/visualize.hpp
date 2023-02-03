@@ -40,10 +40,10 @@ void visualize(pcl::PointCloud<T> const & cloud, pcl::PointCloud<Y> const & patt
 	viewer.addPointCloud<T>(cloud.makeShared(), "cloud");
 	viewer.addCoordinateSystem();
 	for (std::size_t i = 0; i < pattern.size(); ++i) {
-		viewer.addSphere(pattern.at(i), 0.01, 1, 0, 0, boost::to_string(i));
+		viewer.addSphere(pattern.at(i), 0.01, 1, 0, 0, boost::lexical_cast<std::string>(i));
 	}
 	for (std::size_t i = 0; i < edges_cloud.size(); ++i) {
-		viewer.addSphere(edges_cloud.at(i), 0.01, 0, 1, 0, boost::to_string(i+100));
+		viewer.addSphere(edges_cloud.at(i), 0.01, 0, 1, 0, boost::lexical_cast<std::string>(i+100));
 	}
 	viewer.spin();
 }

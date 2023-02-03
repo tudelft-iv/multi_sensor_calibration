@@ -79,13 +79,13 @@ Eigen::Isometry3f solvePose(
 	image_geometry::PinholeCameraModel const & intrinsics
 ) {
 
-	std::vector<double> rvec, tvec; // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
+	std::vector<double> rvec, tvec, empty; // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
 
-	// Get projection matrix from intrinsics 
+	// Get projection matrix from intrinsics
 	cv::Mat intrinsic_matrix = cv::Mat(intrinsics.intrinsicMatrix()); //Note: we assume rectified images
 
 	// Solve pose using known points
-	if (!solvePnP(object_points, detectionToMat(image_points), intrinsic_matrix, 0*intrinsics.distortionCoeffs(), rvec, tvec, false)) {
+	if (!solvePnP(object_points, detectionToMat(image_points), intrinsic_matrix, empty, rvec, tvec, false)) {
 		throw std::runtime_error("Unable to solve PnP");
 	}
 

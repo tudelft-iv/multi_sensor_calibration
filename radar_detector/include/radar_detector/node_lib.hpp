@@ -18,7 +18,6 @@
 
 #pragma once
 #include <ros/ros.h>
-#include <radar_msgs/RadarDetectionArray.h>
 #include <pcl_ros/point_cloud.h>
 
 namespace radar_detector {
@@ -59,7 +58,7 @@ private:
 	void publishMarker(pcl::PointXYZ const & point, std_msgs::Header const & header);
 
 	/// Point cloud callback function
-	void callback(radar_msgs::RadarDetectionArray const & in);
+	void callback(const sensor_msgs::PointCloud2ConstPtr& in);
 
 };
 
