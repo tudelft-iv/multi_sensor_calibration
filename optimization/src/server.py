@@ -93,7 +93,7 @@ class optimizer_node():
         reference_sensor = rospy.get_param("~reference_sensor", "velodyne")    # reference sensor
         export_detections_to_files = rospy.get_param("~export_detections_to_files", True)
         visualise = rospy.get_param("~visualise", True)  # visualise result using matplotlib 3D visualisation
-        save_folder_yaml = os.path.join(pkg_dir, 'results')
+        results_folder = rospy.get_param("~results_folder", os.path.join(pkg_dir, 'results'))
         reordering_method = rospy.get_param("~reordering", "based_on_reference_sensor")
         outlier_removal_method = rospy.get_param("~outlier_removal", "remove_board_locations")
 
@@ -109,7 +109,7 @@ class optimizer_node():
             export_sensor_data_to_yaml(sensors, save_folder)
 
         # Joint Optimization
-        Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, save_folder_yaml)
+        Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, results_folder)
 
         # Send back response
         return SendPatternsResponse()
