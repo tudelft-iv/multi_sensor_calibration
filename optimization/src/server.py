@@ -75,15 +75,6 @@ class optimizer_node():
         # Service call receiver
         s = rospy.Service('/optimizer/optimize', SendPatterns, self.optimize)
 
-        # ROS parameters
-        rospy.set_param("~calibration_mode", 3)
-        rospy.set_param("~reference_sensor", 'velodyne')
-        rospy.set_param("~correspondences", 'known')
-        rospy.set_param("~export_detections_to_files", True)
-        rospy.set_param("~visualise", True)
-        rospy.set_param("~reordering", 'based_on_reference_sensor') #Either 'based_on_reference_sensor' or 'based_on_definition'
-        rospy.set_param("~outlier_removal", 'remove_board_locations')
-
         # spin() keeps Python from exiting until node is shutdown
         rospy.spin()
 
@@ -92,19 +83,19 @@ class optimizer_node():
         print('Received service call!')
 
         # Parameters for Joint Optimization:
-        calibration_mode = rospy.get_param("~calibration_mode")
+        calibration_mode = rospy.get_param("~calibration_mode", 3)
         # Possible calibration modes:
             # 0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices
             # 1: Pose and Structure Estimation (PSE) with known observation covariance matrices
             # 2: Minimally Connected Pose Estimation (MCPE)
             # 3: Fully Connected Pose Estimation (FCPE)
-        correspondences = rospy.get_param("~correspondences")    # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
-        reference_sensor = rospy.get_param("~reference_sensor")    # reference sensor
-        export_detections_to_files = rospy.get_param("~export_detections_to_files")
-        visualise = rospy.get_param("~visualise")  # visualise result using matplotlib 3D visualisation
+        correspondences = rospy.get_param("~correspondences", "known")    # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
+        reference_sensor = rospy.get_param("~reference_sensor", "velodyne")    # reference sensor
+        export_detections_to_files = rospy.get_param("~export_detections_to_files", True)
+        visualise = rospy.get_param("~visualise", True)  # visualise result using matplotlib 3D visualisation
         save_folder_yaml = os.path.join(pkg_dir, 'results')
-        reordering_method = rospy.get_param("~reordering")
-        outlier_removal_method = rospy.get_param("~outlier_removal")
+        reordering_method = rospy.get_param("~reordering", "based_on_reference_sensor")
+        outlier_removal_method = rospy.get_param("~outlier_removal", "remove_board_locations")
 
         # Convert ROS service call to sensors struct
         sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
