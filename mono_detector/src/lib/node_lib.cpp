@@ -83,9 +83,7 @@ void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
 void MonoDetectorNode::cameraInfoCallback(sensor_msgs::CameraInfo const & camera_info) {
 	ROS_INFO_ONCE("Receiving camera info.");
 	// ToDo: Use message filters to make sure to get both camera info and image
-	if (!intrinsics_.fromCameraInfo(camera_info)) {
-		throw std::runtime_error("Unable to convert camera info to pinhole camera model.");
-	}
+	intrinsics_.fromCameraInfo(camera_info);
 }
 
 }
