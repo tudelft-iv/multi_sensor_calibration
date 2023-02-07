@@ -93,20 +93,22 @@ class optimizer_node():
         reference_sensor = rospy.get_param("~reference_sensor", "velodyne")    # reference sensor
         export_detections_to_files = rospy.get_param("~export_detections_to_files", True)
         visualise = rospy.get_param("~visualise", True)  # visualise result using matplotlib 3D visualisation
-        results_folder = rospy.get_param("~results_folder", os.path.join(pkg_dir, 'results'))
+        results_folder = rospy.get_param("~results_folder", os.path.join(pkg_dir, "results"))
+        detections_folder = rospy.get_param("~detections_folder", os.path.join(pkg_dir, "data"))
         reordering_method = rospy.get_param("~reordering", "based_on_reference_sensor")
         outlier_removal_method = rospy.get_param("~outlier_removal", "remove_board_locations")
+
+        os.makedirs(results_folder, exist_ok=True)
+        os.makedirs(detections_folder, exist_ok=True)
 
         # Convert ROS service call to sensors struct
         sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
 
         if export_detections_to_files:
-            # Define folder to save CSV and YAML files with detections
-            save_folder = os.path.join(pkg_dir, 'data')
             # Save as CSV
-            export_sensor_data_to_csv(sensors, save_folder)
+            export_sensor_data_to_csv(sensors, detections_folder)
             # Save as YAML
-            export_sensor_data_to_yaml(sensors, save_folder)
+            export_sensor_data_to_yaml(sensors, detections_folder)
 
         # Joint Optimization
         Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, results_folder)
