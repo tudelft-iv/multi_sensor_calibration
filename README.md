@@ -12,7 +12,11 @@ This tutorial explains how to use the _multi_sensor_calibration_ toolbox. It con
 
 ### Prerequisites
 
-The code has been developed in Ubuntu 16.04 LTS in combination with ROS Kinetic Kame. Furthermore, the software has been tested on Ubuntu 18.04 LTS in combination with ROS Melodic Morenia.
+This code is modified to work in Ubuntu 20.04 LTS in combination with ROS Noetic Ninjemys.
+It hasn't been rigorously tested under this release.
+
+The code has been originally developed in Ubuntu 16.04 LTS in combination with ROS Kinetic Kame.
+Later, the software has been tested on Ubuntu 18.04 LTS in combination with ROS Melodic Morenia.
 
 ### Installing
 
@@ -20,15 +24,13 @@ The following ROS dependencies are present:
 ```
     apt-get install ros-<ros_distro>-desktop-full
     apt-get install ros-<ros_distro>-pcl-ros
-    apt-get install ros-<ros_distro>-opencv3
     apt-get install ros-<ros_distro>-ros-numpy
-    apt-get install ros-<ros_distro>-astuff-sensor-msgs
 ```
 The following packages need to be installed:
 
 ```
     apt-get install libeigen3-dev
-    apt-get install python-rospkg
+    apt-get install python3-rospkg
     apt-get install build-essential
     apt-get install python3-dev
     apt-get install python3-setuptools
@@ -39,7 +41,7 @@ The following packages need to be installed:
     apt-get install python3-pip
     apt-get install python3-matplotlib
     apt-get install python3-yaml
-    apt-get install python3-sklearn  
+    apt-get install python3-sklearn
     pip3 install rmsd
     pip3 install rospkg
     pip3 install tikzplotlib
@@ -63,7 +65,7 @@ For each detector except for the radar detector, the YAML file is used to define
 - Lidar Detector:  lidar_detector/config/config.yaml
 - Stereo Detector: stereo_detector/config/config.yaml
 - Mono Detector:   mono_detector/config/config.yaml
-- Radar detector: configuration is determined as ROS parameters (example [here](multi_sensor_calibration_launch/launch/detectors.launch)). Specifically, one can specify a min and max range and RCS, as well as define the selection criteria within that range (i.e. choose to select the highest/lowest range/RCS). 
+- Radar detector: configuration is determined as ROS parameters (example [here](multi_sensor_calibration_launch/launch/detectors.launch)). Specifically, one can specify a min and max range and RCS, as well as define the selection criteria within that range (i.e. choose to select the highest/lowest range/RCS).
 
 Note that we provide some additional information about the detectors in: [detectors](docs/detectors.md).
 
@@ -71,9 +73,9 @@ Note that we provide some additional information about the detectors in: [detect
 This can be done by:
 ```
     rosrun lidar_detector lidar_detector_node
-    rosrun radar_detector radar_detector_node    
-    rosrun stereo_detector stereo_detector_node     
-    rosrun mono_detector mono_detector_node     
+    rosrun radar_detector radar_detector_node
+    rosrun stereo_detector stereo_detector_node
+    rosrun mono_detector mono_detector_node
 ```
 For instance, you can find for every node the subscribed and published topics. We recommend you to visualize the published topics to check if the detectors are working (see [detectors](docs/detectors.md)).
 
@@ -194,7 +196,7 @@ In addition, you will see the following figure appearing:
 <img src="docs/figure_example_1.png" alt="drawing" width="400"/>
 
 ### Optimizer
-In the following two examples, we will run the optimizer with csv files as input. The first showcases a basic optimization in which all calibration board detections were succesful. 
+In the following two examples, we will run the optimizer with csv files as input. The first showcases a basic optimization in which all calibration board detections were succesful.
 The second showcases what to do when some calibration board detections were unsuccesful.
 
 #### Optimization with solely correct detections
@@ -226,7 +228,7 @@ In addition, you will see the following figure, with all 29 calibration board lo
 
 #### Optimization with partially incorrect detections
 
-In the following example, the fifth and sixth radar detections have been translated, as well as the first and final set of four lidar detections. 
+In the following example, the fifth and sixth radar detections have been translated, as well as the first and final set of four lidar detections.
 Run the following command:
 ```
 python3 src/main.py --lidar data/example_data/lidar_with_error.csv --camera data/example_data/camera.csv --radar data/example_data/radar_with_error.csv --calibration-mode 3 --visualise --sensors_to_number radar1 --plot_correspondence radar1 lidar1
@@ -276,11 +278,11 @@ RMSE  camera1 to radar1 =  0.02102
 Note that ignoring the largest errors will always reduce the RMSE, and as such a lower error does not directly translate into a better calibration. Use the above only for removing outliers.
 
 #### Optimization with more multiple sensors of the same modality
-The current setup allows for multiple sensors of the same modality. In the following example, 3D radar detections have been simulated by computing their expected position using the camera detections. The following command optimizes four sensors at once (of which two radar), using MPCE:  
+The current setup allows for multiple sensors of the same modality. In the following example, 3D radar detections have been simulated by computing their expected position using the camera detections. The following command optimizes four sensors at once (of which two radar), using MPCE:
 ```
 python3 src/main.py --lidar data/example_data/lidar.csv --camera data/example_data/camera.csv --radar data/example_data/radar.csv --radar data/example_data/radar_3D.csv --calibration-mode 2 --visualise
 ```
-As a result, you get the error between every set of sensors. As `radar_3D.csv` was added second, it is referred to as `radar2` in the bottom output.  
+As a result, you get the error between every set of sensors. As `radar_3D.csv` was added second, it is referred to as `radar2` in the bottom output.
 
 ```
 ----------------------------------------------------------------
@@ -306,8 +308,8 @@ Note that as `radar2` was simulated using the 3D data from `camera1`, the error 
 ## Frequently Asked Questions (FAQ)
 
 ### My sensor setup is different from your example. Can I calibrate my sensor setup?
-Yes, you can. The only requirement is that you have at least one 3D sensor. 
-In that case, you need to start a detector for every sensor (see [detectors](docs/detectors.md)). The accumulator needs to know which topics need to be recorded. The ROS topics can be set using _sensors_topic_ which is a ROS parameter. 
+Yes, you can. The only requirement is that you have at least one 3D sensor.
+In that case, you need to start a detector for every sensor (see [detectors](docs/detectors.md)). The accumulator needs to know which topics need to be recorded. The ROS topics can be set using _sensors_topic_ which is a ROS parameter.
 
 ### Can I calibrate sensors with only partial overlapping field of view?
 Yes, you should be able to do it, however there are some limitations and it has not been tested extensively. The accumulator returns point cloud with NaNs in case the detector didn't detect something. The optimizer is able to deal with missing detections of a sensor.
