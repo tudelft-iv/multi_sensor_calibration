@@ -26,7 +26,7 @@ pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in, floa
                                         float const min_range, float const max_range,
                                         bool const select_range, bool const select_min) {
 	pcl::PointXYZ point;
-	float best_candidate_value = select_min ? std::numeric_limits<float>::max():std::numeric_limits<float>::lowest();
+	float best_candidate_value = select_min ? std::numeric_limits<float>::max() : std::numeric_limits<float>::lowest();
 
 	std::size_t n_points = (*in).width;
 	sensor_msgs::PointCloud2ConstIterator<float> iter_x(*in, "x");
@@ -37,7 +37,7 @@ pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in, floa
 
 		float x = *iter_x;
 		float y = *iter_y;
-		float range = sqrt(x*x+y*y); // compute range using x and y
+		float range = sqrt(x*x + y*y); // compute range using x and y
 		float rcs = *iter_rcs; // RCS value
 		// select the best candidate either based on range or on rcs
 		float selection = select_range ? range : rcs;

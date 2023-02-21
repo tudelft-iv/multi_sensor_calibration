@@ -30,7 +30,7 @@ namespace mono_detector {
 Eigen::Isometry3f solvePose(
 	std::vector<cv::Point2f> const & image_points,
 	std::vector<cv::Point3f> const & object_points,
-	image_geometry::PinholeCameraModel const & intrinsics
+	CameraModel const & intrinsics
 );
 
 }

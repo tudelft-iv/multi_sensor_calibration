@@ -76,16 +76,23 @@ namespace {
 Eigen::Isometry3f solvePose(
 	std::vector<cv::Point2f> const & image_points,
 	std::vector<cv::Point3f> const & object_points,
-	image_geometry::PinholeCameraModel const & intrinsics
+	CameraModel const & intrinsics
 ) {
+	// We first undistort points manually and then pass identity and zeros matrices to solvePnP,
+	// as this way we can support both pinhole and fisheye models.
+	cv::Mat undistorted = cv::Mat::zeros(1, 4, CV_32FC2);
+	if (intrinsics.distortion_model == CameraModel::DistortionModel::PINHOLE) {
+		cv::undistortPoints(detectionToMat(image_points), undistorted, intrinsics.camera_matrix, intrinsics.distortion_parameters);
+	} else {
+		cv::fisheye::undistortPoints(detectionToMat(image_points), undistorted, intrinsics.camera_matrix, intrinsics.distortion_parameters);
+	}
 
-	std::vector<double> rvec, tvec, empty; // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
-
-	// Get projection matrix from intrinsics
-	cv::Mat intrinsic_matrix = cv::Mat(intrinsics.intrinsicMatrix()); //Note: we assume rectified images
+	std::vector<double> rvec, tvec; // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
+	cv::Mat camera_matrix_eye = cv::Mat::eye(3, 3, CV_32F);
+	cv::Mat distortion_parameters_zeros = cv::Mat::zeros(1, 5, CV_32F);
 
 	// Solve pose using known points
-	if (!solvePnP(object_points, detectionToMat(image_points), intrinsic_matrix, empty, rvec, tvec, false)) {
+	if (!solvePnP(object_points, undistorted, camera_matrix_eye, distortion_parameters_zeros, rvec, tvec, false)) {
 		throw std::runtime_error("Unable to solve PnP");
 	}
 

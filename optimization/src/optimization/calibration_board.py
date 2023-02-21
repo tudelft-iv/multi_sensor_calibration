@@ -20,9 +20,9 @@ import itertools
 
 class geometry_calibration_board:
     #circle_radius: not needed by optimizer
-    width = 0.24  # width: distance between circle centers
+    width = 0.3  # width: distance between circle centers
     height = width  # Assumption is that centers location is a square --> mainly for is_valid_board() function
-    offset_radar = 0.105  # Plate = 0.06 m + trihedral corner reflector depth = 0.0451 [m]
+    offset_radar = 0.17  # Plate = 0.1 m + trihedral corner reflector depth = 0.07 [m]
 
 
 def get_board():
@@ -90,7 +90,7 @@ def compute_normal_vector(Xc):
 
         # Compute eigenvalues and eigenvectors
         _,eigenvalues,eigen_vectors = np.linalg.svd(X.T)
-        
+
         # Get index smallest
         index = np.argmin(eigenvalues)
 
@@ -106,7 +106,7 @@ def compute_normal_vector(Xc):
         normal_vector = normal_vector / np.linalg.norm(normal_vector)
         # Definition: normal vector should be pointing away from sensors
         # So if not: mirror it
-    
+
     if np.dot(np.mean(Xc, axis=1), normal_vector) < 0:
         normal_vector = -normal_vector
 

@@ -64,7 +64,7 @@ void detectMono(
 	);
 
 	// ToDo: Filter the 4 best scoring circles
-	
+
 	// visualize result
 	if (configuration.visualize) {
 		visualize(image, circles, configuration.roi);
@@ -76,15 +76,15 @@ void detectMono(
 	// Filter circles based on median closest to median x and y:
 	if (circles.size() > 4) {
 		// Compute median radius of circles
-		std::vector<double> median_circle = compute_median_circle(circles); 
+		std::vector<double> median_circle = compute_median_circle(circles);
 		double median_x = median_circle[0]; // Compute median for first dimension of cicle: aka x
 		double median_y = median_circle[1]; // Compute median for first dimension of cicle: aka y
-		
+
 		// Compute distances wrt median
 		std::vector<double> distances_from_median;
 		for (const auto & circle : circles ) {
 			distances_from_median.push_back(sqrt((circle[0]-median_x)*(circle[0]-median_x)+(circle[1]-median_y)*(circle[1]-median_y)));
-		} 
+		}
 
 		// Remove untill we have 4 detections
 		while (circles.size() > 4) {

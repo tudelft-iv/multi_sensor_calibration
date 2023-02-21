@@ -22,7 +22,6 @@
 #include <sensor_msgs/Image.h>
 #include <pcl_ros/point_cloud.h>
 #include <sensor_msgs/CameraInfo.h>
-#include <image_geometry/pinhole_camera_model.h> // ToDo: Remove ros dependency
 
 namespace mono_detector {
 
@@ -50,7 +49,8 @@ private:
 	Configuration config_;
 
 	/// Intrinsics
-	image_geometry::PinholeCameraModel intrinsics_;
+	CameraModel intrinsics_;
+	bool intrinsics_received_ = false;
 
 	/// Object points
 	std::vector<cv::Point3f> object_points_;

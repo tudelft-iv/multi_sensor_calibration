@@ -24,7 +24,6 @@
 #include <ros/console.h>
 #include <ros/package.h>
 #include <string>
-#include <image_geometry/pinhole_camera_model.h> // ToDo: Remove ros dependency
 #include <pcl/common/transforms.h>
 
 namespace mono_detector {
@@ -55,6 +54,9 @@ MonoDetectorNode::MonoDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
 
 void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
 	ROS_INFO_ONCE("Receiving images.");
+	if (!intrinsics_received_) {
+		return;
+	}
 
 	try {
 		// Call to do image processing
@@ -84,6 +86,7 @@ void MonoDetectorNode::cameraInfoCallback(sensor_msgs::CameraInfo const & camera
 	ROS_INFO_ONCE("Receiving camera info.");
 	// ToDo: Use message filters to make sure to get both camera info and image
 	intrinsics_.fromCameraInfo(camera_info);
+	intrinsics_received_ = true;
 }
 
 }

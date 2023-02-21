@@ -23,7 +23,6 @@
 #include "eigen.hpp"
 
 #include <camera_calibration_parsers/parse.h> // ToDo: Remove ros dependency
-#include <image_geometry/pinhole_camera_model.h> // ToDo: Remove ros dependency
 #include <pcl/common/transforms.h>
 #include <pcl/io/pcd_io.h>
 
@@ -50,7 +49,7 @@ namespace mono_detector {
 namespace {
 
 /// Loads intrinsics from file (to be replaced by a non-ros method to avoid ros dependency in cli)
-image_geometry::PinholeCameraModel loadIntrinsics(std::string const & file_name) {
+CameraModel loadIntrinsics(std::string const & file_name) {
 	// Load intrinsics yaml/ini file as camera info
 	sensor_msgs::CameraInfo camera_info;
 	std::string camera_name;
@@ -59,10 +58,8 @@ image_geometry::PinholeCameraModel loadIntrinsics(std::string const & file_name)
 	}
 
 	// Use image geometry to get cv::Mat from camera info
-	image_geometry::PinholeCameraModel model;
-	if (!model.fromCameraInfo(camera_info)) {
-		throw std::runtime_error("Unable to convert camera info to pinhole camera model.");
-	}
+	CameraModel model;
+	model.fromCameraInfo(camera_info);
 	return model;
 }
 
@@ -109,7 +106,7 @@ int main(int argc, char * * argv) {
 
 	// Load intrinsics (parsing the ini is a dependency on a ros package, // ToDo: Remove dependency
 	std::string intrinsics_file_name = argv[3];
-	image_geometry::PinholeCameraModel intrinsics = loadIntrinsics(intrinsics_file_name);
+	CameraModel intrinsics = loadIntrinsics(intrinsics_file_name);
 
 	// Load object points
 	std::vector<cv::Point3f> object_points = YAML::LoadFile(argv[4]).as<std::vector<cv::Point3f>>();
