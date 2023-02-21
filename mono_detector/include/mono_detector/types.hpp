@@ -49,6 +49,11 @@ struct CameraModel {
 	}
 };
 
+class DetectionException : public std::runtime_error {
+public:
+    explicit DetectionException(const std::string& message) : std::runtime_error(message) {};
+};
+
 struct GaussConfig {
 	bool apply;
 	int ksize_x;

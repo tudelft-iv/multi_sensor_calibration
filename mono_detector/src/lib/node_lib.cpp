@@ -77,6 +77,8 @@ void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
 		pcl::toROSMsg(transformed_pattern, out);
 		out.header = in->header;
 		point_cloud_publisher_.publish(out);
+	} catch (DetectionException & e) {
+		ROS_WARN_STREAM_THROTTLE(10, "Detection failed: '" << e.what() << "'.");
 	} catch (std::exception & e) {
 		ROS_ERROR_STREAM("Exception thrown: '" << e.what() << "'.");
 	}

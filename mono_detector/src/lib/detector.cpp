@@ -100,7 +100,7 @@ void detectMono(
 
 	// Only continue if the number of circles is exactly 4
 	if (circles.size() != 4) {
-		throw std::runtime_error("Number of circles found: '" + std::to_string(circles.size()) + "', but should be exactly 4.");
+		throw DetectionException("Number of circles found: '" + std::to_string(circles.size()) + "', but should be exactly 4.");
 	}
 
 	// Convert to vector of cv point 2f
