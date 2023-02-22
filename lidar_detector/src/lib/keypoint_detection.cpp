@@ -102,7 +102,7 @@ pcl::PointCloud<Lidar::PointWithDist> filterPlane(
 std::vector<std::vector<Lidar::PointWithDist*> > getRings(pcl::PointCloud<Lidar::PointWithDist> & in, LidarParameters const & lidar_parameters) {
 	std::vector<std::vector<Lidar::PointWithDist*> > rings(lidar_parameters.number_layers);
 	for (std::size_t i = 0; i < in.size(); ++i) {
-		rings[in.at(i).ring].push_back(&(in.at(i)));
+		rings.at(in.at(i).ring).push_back(&(in.at(i)));
 	}
 	return rings;
 }
