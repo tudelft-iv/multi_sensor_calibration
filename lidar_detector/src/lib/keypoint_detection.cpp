@@ -395,6 +395,12 @@ pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Lidar::PointWit
 	pcl::PointCloud<pcl::PointXYZ> pattern = processCircles(circles_cloud, cloud_without_ground_floor, config.circle_detection);
 	if (config.visualize) { visualize(cloud_calibration_board, pattern, edges_cloud); }
 
+  if (pattern.size() < 4) {
+    std::cerr << "Failed to find all circles, found only " << pattern.size() << std::endl;
+    pattern.clear();
+    return pattern;
+  }
+
 	// Refine circle centers using calibration board geometry
 	if (config.refinement.refine) {
 		// Refinement using kabsch
