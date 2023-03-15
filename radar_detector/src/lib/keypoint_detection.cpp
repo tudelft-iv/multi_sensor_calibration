@@ -16,15 +16,16 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <sensor_msgs/point_cloud2_iterator.h>
-#include "keypoint_detection.hpp"
+#include "radar_detector/keypoint_detection.hpp"
 
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 
 namespace radar_detector {
 
-pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in, float const min, float const max,
-                                        float const min_range, float const max_range,
-                                        bool const select_range, bool const select_min) {
+pcl::PointXYZ keypointDetection(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in,
+																float const min, float const max,
+																float const min_range, float const max_range,
+																bool const select_range, bool const select_min) {
 	pcl::PointXYZ point;
 	float best_candidate_value = select_min ? std::numeric_limits<float>::max() : std::numeric_limits<float>::lowest();
 

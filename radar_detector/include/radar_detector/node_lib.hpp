@@ -17,17 +17,20 @@
 */
 
 #pragma once
-#include <ros/ros.h>
-#include <pcl_ros/point_cloud.h>
+
+#include <pcl/point_types.h>
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/header.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 namespace radar_detector {
 
-/// Class with a node, subscribing to a radar measurement and publishes transformed calibration pattern
-class RadarDetectorNode {
+/// Node, subscribing to a radar measurement and publishes transformed calibration pattern
+class RadarDetectorNode : public rclcpp::Node {
 public:
-
-	/// Constructor taking the node handle as a member variable
-	RadarDetectorNode(ros::NodeHandle & nh);
+	RadarDetectorNode();
 
 private:
 
@@ -39,26 +42,23 @@ private:
 	bool select_range_;
 	bool select_min_;
 
-	/// Ros Node Handle to communicate with ros server
-	ros::NodeHandle nh_;
-
 	/// Subscriber for radar messages point cloud
-	ros::Subscriber radar_subscriber_;
+	rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr radar_subscriber_;
 
 	/// Publisher for resulting pattern point cloud
-	ros::Publisher pattern_publisher_;
+	rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pattern_publisher_;
 
 	/// Publisher for resulting pattern as a marker for rviz
-	ros::Publisher marker_publisher_;
+	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
 
 	/// Function to convert to a point cloud type and publish pattern
-	void publishPattern(pcl::PointXYZ const & point, std_msgs::Header const & header);
+	void publishPattern(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
 
 	/// Function to convert to a marker and publish pattern
-	void publishMarker(pcl::PointXYZ const & point, std_msgs::Header const & header);
+	void publishMarker(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
 
 	/// Point cloud callback function
-	void callback(const sensor_msgs::PointCloud2ConstPtr& in);
+	void callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in);
 
 };
 
