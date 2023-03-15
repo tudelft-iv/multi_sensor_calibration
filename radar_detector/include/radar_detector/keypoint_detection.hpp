@@ -21,6 +21,9 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <limits>
+#include <string>
+
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 namespace radar_detector {
@@ -38,4 +41,4 @@ pcl::PointXYZ keypointDetection(const sensor_msgs::msg::PointCloud2::ConstShared
                                 bool const select_min = true);
 
 
-}
+}  // namespace radar_detector

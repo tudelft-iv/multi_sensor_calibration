@@ -33,7 +33,6 @@ public:
   RadarDetectorNode();
 
 private:
-
   // Define specfic RCS values range
   float min_RCS_;
   float max_RCS_;
@@ -59,8 +58,6 @@ private:
 
   // Point cloud callback function
   void callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in);
-
 };
 
-
-}
+}  // namespace radar_detector

@@ -52,7 +52,8 @@ geometry_msgs::msg::Point toRos(pcl::PointXYZ const & point) {
 }
 
 // Convert a point cloud to a marker of spheres
-visualization_msgs::msg::Marker toPoint(pcl::PointXYZ const & point, std_msgs::msg::Header const & header) {
+visualization_msgs::msg::Marker toPoint(pcl::PointXYZ const & point,
+                                        std_msgs::msg::Header const & header) {
   visualization_msgs::msg::Marker marker;
   marker.action = visualization_msgs::msg::Marker::ADD;
   marker.type = visualization_msgs::msg::Marker::SPHERE;
@@ -70,7 +71,9 @@ visualization_msgs::msg::Marker toPoint(pcl::PointXYZ const & point, std_msgs::m
 }
 
 // Convert a point cloud to a specific point
-visualization_msgs::msg::Marker toArc(pcl::PointXYZ const & point, std_msgs::msg::Header const & header, float & maximum_elevation_degrees) {
+visualization_msgs::msg::Marker toArc(pcl::PointXYZ const & point,
+                                      std_msgs::msg::Header const & header,
+                                      float & maximum_elevation_degrees) {
   visualization_msgs::msg::Marker marker;
   marker.action = visualization_msgs::msg::Marker::ADD;
   marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -80,15 +83,16 @@ visualization_msgs::msg::Marker toArc(pcl::PointXYZ const & point, std_msgs::msg
   pcl::PointXYZ point2d = point;
   point2d.z = 0;
   // Transform to polar:
-  float range = sqrt(point2d.x*point2d.x + point2d.y*point2d.y);
+  float range = sqrt(point2d.x * point2d.x + point2d.y * point2d.y);
   float azimuth = atan2(point2d.y, point2d.x);
 
-  float max_elevation_angle_radians = maximum_elevation_degrees*M_PI/180; // TODO: should be to config
+  // TODO(mw_agrirobot): should be to config
+  float max_elevation_angle_radians = maximum_elevation_degrees * M_PI / 180;
   unsigned int nr_line_segements = 25;
-  float delta = 2*max_elevation_angle_radians/nr_line_segements;
+  float delta = 2 * max_elevation_angle_radians / nr_line_segements;
   for (size_t n = 0; n < nr_line_segements; n++) {
     // Get elevation angle
-    float elevation = -max_elevation_angle_radians + delta*n;
+    float elevation = -max_elevation_angle_radians + delta * n;
     // Covert back to x,y,z
     pcl::PointXYZ t;
     t.x = range * cos(azimuth) * cos(elevation);
@@ -122,16 +126,20 @@ RadarDetectorNode::RadarDetectorNode() : Node("radar_detector") {
   max_RCS_ = this->get_parameter("maximum_RCS").get_parameter_value().get<float>();
   min_range_object_ = this->get_parameter("min_range_object").get_parameter_value().get<float>();
   max_range_object_ = this->get_parameter("max_range_object").get_parameter_value().get<float>();
-  std::string selection_basis = this->get_parameter("selection_basis").get_parameter_value().get<std::string>();
-  std::string selection_criterion = this->get_parameter("selection_criterion").get_parameter_value().get<std::string>();
+  std::string selection_basis = this->get_parameter("selection_basis").get_parameter_value()
+    .get<std::string>();
+  std::string selection_criterion = this->get_parameter("selection_criterion").get_parameter_value()
+    .get<std::string>();
 
   if (selection_basis == radar_detector::RANGE_BASED_SELECTION) {
     select_range_ = true;
   } else if (selection_basis == radar_detector::RCS_BASED_SELECTION) {
     select_range_ = false;
   } else {
-    RCLCPP_ERROR_STREAM(get_logger(), "selection_basis parameter must either be " << radar_detector::RANGE_BASED_SELECTION
-                        << " or " << radar_detector::RCS_BASED_SELECTION << " (current value: " << selection_basis <<  ")");
+    RCLCPP_ERROR_STREAM(get_logger(), "selection_basis parameter must either be " <<
+                                      radar_detector::RANGE_BASED_SELECTION << " or " <<
+                                      radar_detector::RCS_BASED_SELECTION <<
+                                      " (current value: " << selection_basis <<  ")");
     initialization_errors = true;
   }
 
@@ -140,13 +148,15 @@ RadarDetectorNode::RadarDetectorNode() : Node("radar_detector") {
   } else if (selection_criterion == radar_detector::SELECT_MAX) {
     select_min_ = false;
   } else {
-    RCLCPP_ERROR_STREAM(get_logger(), "selection_criterion parameter must either be " << radar_detector::SELECT_MIN
-                        << " or " << radar_detector::SELECT_MAX << " (current value: " << selection_criterion <<  ")");
+    RCLCPP_ERROR_STREAM(get_logger(), "selection_criterion parameter must either be " <<
+                                      radar_detector::SELECT_MIN << " or " <<
+                                      radar_detector::SELECT_MAX <<
+                                      " (current value: " << selection_criterion <<  ")");
     initialization_errors = true;
   }
 
   if (initialization_errors) {
-      throw std::exception();
+    throw std::exception();
   }
 
   radar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -156,8 +166,9 @@ RadarDetectorNode::RadarDetectorNode() : Node("radar_detector") {
   RCLCPP_INFO(get_logger(), "Initialized radar detector.");
 }
 
-void RadarDetectorNode::publishMarker(pcl::PointXYZ const & point, std_msgs::msg::Header const & header) {
-  float el = 9; // TODO move to ROS parameter
+void RadarDetectorNode::publishMarker(pcl::PointXYZ const & point,
+                                      std_msgs::msg::Header const & header) {
+  float el = 9;  // TODO(mw_agrirobot): move to ROS parameter
 
   // Get arc for radar detection
   visualization_msgs::msg::Marker marker;
@@ -171,7 +182,8 @@ void RadarDetectorNode::publishMarker(pcl::PointXYZ const & point, std_msgs::msg
   marker_publisher_->publish(marker);
 }
 
-void RadarDetectorNode::publishPattern(pcl::PointXYZ const & point, std_msgs::msg::Header const & header) {
+void RadarDetectorNode::publishPattern(pcl::PointXYZ const & point,
+                                       std_msgs::msg::Header const & header) {
   pcl::PointCloud<pcl::PointXYZ> pattern;
   pattern.push_back(point);
   sensor_msgs::msg::PointCloud2 out;
@@ -183,7 +195,8 @@ void RadarDetectorNode::publishPattern(pcl::PointXYZ const & point, std_msgs::ms
 void RadarDetectorNode::callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in) {
   RCLCPP_INFO_ONCE(get_logger(), "Receiving radar messages.");
   // Find reflection of calibration board
-  pcl::PointXYZ point = keypointDetection(in, min_RCS_, max_RCS_,min_range_object_, max_range_object_, select_range_, select_min_);
+  pcl::PointXYZ point = keypointDetection(
+    in, min_RCS_, max_RCS_, min_range_object_, max_range_object_, select_range_, select_min_);
 
   // Publish results if detected point is valid (so not in origin of sensor)
   if (isValidDetection(point)) {
@@ -192,4 +205,4 @@ void RadarDetectorNode::callback(const sensor_msgs::msg::PointCloud2::ConstShare
   }
 }
 
-}
+}  // namespace radar_detector
