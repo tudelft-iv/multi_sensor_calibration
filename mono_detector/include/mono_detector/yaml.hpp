@@ -24,38 +24,38 @@ namespace YAML {
 
 template <>
 struct convert<cv::Point3f> {
-	static Node encode(const cv::Point3f & config);
-	static bool decode(const Node & node, cv::Point3f & config);
+  static Node encode(const cv::Point3f & config);
+  static bool decode(const Node & node, cv::Point3f & config);
 };
 
 template <>
 struct convert<mono_detector::CannyConfig> {
-	static Node encode(const mono_detector::CannyConfig & config);
-	static bool decode(const Node & node, mono_detector::CannyConfig & config);
+  static Node encode(const mono_detector::CannyConfig & config);
+  static bool decode(const Node & node, mono_detector::CannyConfig & config);
 };
 
 template <>
 struct convert<mono_detector::GaussConfig> {
-	static Node encode(const mono_detector::GaussConfig & config);
-	static bool decode(const Node & node, mono_detector::GaussConfig & config);
+  static Node encode(const mono_detector::GaussConfig & config);
+  static bool decode(const Node & node, mono_detector::GaussConfig & config);
 };
 
 template <>
 struct convert<mono_detector::HoughConfig> {
-	static Node encode(const mono_detector::HoughConfig & config);
-	static bool decode(const Node & node, mono_detector::HoughConfig & config);
+  static Node encode(const mono_detector::HoughConfig & config);
+  static bool decode(const Node & node, mono_detector::HoughConfig & config);
 };
 
 template <>
 struct convert<mono_detector::Configuration> {
-	static Node encode(const mono_detector::Configuration & config);
-	static bool decode(const Node & node, mono_detector::Configuration & config);
+  static Node encode(const mono_detector::Configuration & config);
+  static bool decode(const Node & node, mono_detector::Configuration & config);
 };
 
 template <>
 struct convert<cv::Rect> {
-	static Node encode(const cv::Rect & config);
-	static bool decode(const Node & node, cv::Rect & config);
+  static Node encode(const cv::Rect & config);
+  static bool decode(const Node & node, cv::Rect & config);
 };
 
 }

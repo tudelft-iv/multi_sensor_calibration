@@ -18,12 +18,12 @@ find_package(sensor_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(deps
-	rclcpp
-	cv_bridge
-	image_geometry
-	pcl_ros
-	sensor_msgs
-	yaml-cpp)
+  rclcpp
+  cv_bridge
+  image_geometry
+  pcl_ros
+  sensor_msgs
+  yaml-cpp)
 
 include_directories(include)
 
@@ -42,11 +42,11 @@ ament_target_dependencies(${PROJECT_NAME}_node ${deps})
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_ros)
 
 install(TARGETS
-	${PROJECT_NAME}_lib ${PROJECT_NAME}_ros
-	DESTINATION lib)
+  ${PROJECT_NAME}_lib ${PROJECT_NAME}_ros
+  DESTINATION lib)
 install(TARGETS
-	${PROJECT_NAME}_node
-	DESTINATION lib/${PROJECT_NAME})
+  ${PROJECT_NAME}_node
+  DESTINATION lib/${PROJECT_NAME})
 
 # Install config files
 install(
@@ -59,7 +59,7 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
 
-#   ament_lint_auto_find_test_dependencies()
+  ament_lint_auto_find_test_dependencies()
 
   ament_add_gtest(${PROJECT_NAME}_yaml_test test/yaml.cpp)
   ament_target_dependencies(${PROJECT_NAME}_yaml_test ${deps})

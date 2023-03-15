@@ -28,10 +28,10 @@ namespace mono_detector {
 
 /// Function to calculate the location of the calibration board in the image (pixel coordinates)
 void detectMono(
-	cv::Mat const & image,
-	Configuration const & configuration,
-	std::vector<cv::Point2f> & centers,
-	std::vector<float> & radi
+  cv::Mat const & image,
+  Configuration const & configuration,
+  std::vector<cv::Point2f> & centers,
+  std::vector<float> & radi
 );
 
 }

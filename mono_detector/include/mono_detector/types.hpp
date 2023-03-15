@@ -27,28 +27,28 @@
 namespace mono_detector {
 
 struct CameraModel {
-	enum DistortionModel {
-		PINHOLE,
-		FISHEYE
-	};
+  enum DistortionModel {
+    PINHOLE,
+    FISHEYE
+  };
 
-	DistortionModel distortion_model;
-	cv::Mat camera_matrix;
-	cv::Mat distortion_parameters;
+  DistortionModel distortion_model;
+  cv::Mat camera_matrix;
+  cv::Mat distortion_parameters;
 
-	void fromCameraInfo(sensor_msgs::msg::CameraInfo camera_info) {
-		if (camera_info.distortion_model == sensor_msgs::distortion_models::PLUMB_BOB) {
-			distortion_model = DistortionModel::PINHOLE;
-			distortion_parameters = cv::Mat(1, 5, CV_32F, camera_info.d.data()).clone();
-		} else if (camera_info.distortion_model == sensor_msgs::distortion_models::EQUIDISTANT) {
-			distortion_model = DistortionModel::FISHEYE;
-			distortion_parameters = cv::Mat(1, 4, CV_32F, camera_info.d.data()).clone();
-		} else {
-			throw std::runtime_error("Unsupported distortion model: " + camera_info.distortion_model);
-		}
+  void fromCameraInfo(sensor_msgs::msg::CameraInfo camera_info) {
+    if (camera_info.distortion_model == sensor_msgs::distortion_models::PLUMB_BOB) {
+      distortion_model = DistortionModel::PINHOLE;
+      distortion_parameters = cv::Mat(1, 5, CV_32F, camera_info.d.data()).clone();
+    } else if (camera_info.distortion_model == sensor_msgs::distortion_models::EQUIDISTANT) {
+      distortion_model = DistortionModel::FISHEYE;
+      distortion_parameters = cv::Mat(1, 4, CV_32F, camera_info.d.data()).clone();
+    } else {
+      throw std::runtime_error("Unsupported distortion model: " + camera_info.distortion_model);
+    }
 
-		camera_matrix = cv::Mat(3, 3, CV_32F, camera_info.k.data()).clone();
-	}
+    camera_matrix = cv::Mat(3, 3, CV_32F, camera_info.k.data()).clone();
+  }
 };
 
 class DetectionException : public std::runtime_error {
@@ -57,35 +57,35 @@ public:
 };
 
 struct GaussConfig {
-	bool apply;
-	int ksize_x;
-	int ksize_y;
-	float sigma_x;
-	float sigma_y;
+  bool apply;
+  int ksize_x;
+  int ksize_y;
+  float sigma_x;
+  float sigma_y;
 };
 
 struct CannyConfig {
-	bool apply;
-	int min_threshold;
-	int max_threshold;
+  bool apply;
+  int min_threshold;
+  int max_threshold;
 };
 
 struct HoughConfig {
-	double dp;
-	double min_dist;
-	double param1;
-	double param2;
-	int min_radius;
-	int max_radius;
+  double dp;
+  double min_dist;
+  double param1;
+  double param2;
+  int min_radius;
+  int max_radius;
 };
 
 struct Configuration {
-	GaussConfig pre_blur;
-	CannyConfig edge_detection;
-	GaussConfig post_blur;
-	HoughConfig hough_config;
-	cv::Rect roi;
-	bool visualize;
+  GaussConfig pre_blur;
+  CannyConfig edge_detection;
+  GaussConfig post_blur;
+  HoughConfig hough_config;
+  cv::Rect roi;
+  bool visualize;
 };
 
 }

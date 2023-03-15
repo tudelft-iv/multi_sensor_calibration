@@ -28,9 +28,9 @@ namespace mono_detector {
 
 // Replace by point cloud
 Eigen::Isometry3f solvePose(
-	std::vector<cv::Point2f> const & image_points,
-	std::vector<cv::Point3f> const & object_points,
-	CameraModel const & intrinsics
+  std::vector<cv::Point2f> const & image_points,
+  std::vector<cv::Point3f> const & object_points,
+  CameraModel const & intrinsics
 );
 
 }
