@@ -16,16 +16,18 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "accumulator.hpp"
+#include <memory>
 
-int main(int argc, char * * argv) {
-	ros::init(argc, argv, "accumulator");
+#include <rclcpp/rclcpp.hpp>
 
-	ros::NodeHandle private_node_handle("~");
+#include "accumulator/accumulator.hpp"
 
-	accumulator::AccumulatorNode accumulator_node(private_node_handle);
+int main(int argc, char **argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<accumulator::AccumulatorNode>();
 
-	ros::spin();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
 
 	return 0;
 }

@@ -17,11 +17,13 @@
 */
 
 #pragma once
+
+#include <map>
+#include <vector>
+
 #include <yaml-cpp/yaml.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <map>
-#include <vector>
 
 namespace YAML {
 

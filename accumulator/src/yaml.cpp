@@ -16,7 +16,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "yaml.hpp"
+#include "accumulator/yaml.hpp"
 
 namespace YAML {
 
@@ -50,7 +50,7 @@ Node convert<pcl::PointXYZ>::encode(pcl::PointXYZ const & config) {
 		node["z"]      = ".nan";
 	}
 	else
-	{	
+	{
 		// Normal case
 		node["x"]      = config.x;
 		node["y"]      = config.y;

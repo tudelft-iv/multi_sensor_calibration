@@ -1,48 +1,59 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(accumulator)
 
-add_compile_options(-std=c++14)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-find_package(catkin REQUIRED COMPONENTS
-	message_generation
-	pcl_ros
-	roscpp
-	sensor_msgs
-	visualization_msgs
-)
-
+find_package(ament_cmake REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(calibration_interfaces REQUIRED)
 
-add_message_files(
-	FILES
-	AccumulatedPatterns.msg
+set(deps
+  pcl_ros
+  rclcpp
+  sensor_msgs
+  visualization_msgs
+  std_msgs
+  std_srvs
+  calibration_interfaces
 )
 
-add_service_files(
-	FILES
-	SendPatterns.srv
-	SendString.srv
-	SendUInt.srv
-)
+# include_directories(
+#   include/${PROJECT_NAME}
+#   ${catkin_INCLUDE_DIRS}
+#   ${YAML_CPP_INCLUDE_DIRS}
+# )
+include_directories(include)
 
-generate_messages(
-	DEPENDENCIES
-	std_msgs
-	sensor_msgs
-)
+add_executable(${PROJECT_NAME}_node src/node.cpp src/yaml.cpp)
+ament_target_dependencies(${PROJECT_NAME}_node ${deps})
+target_link_libraries(${PROJECT_NAME}_node ${YAML_CPP_LIBRARIES})
+# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-catkin_package(
-	INCLUDE_DIRS include
-	CATKIN_DEPENDS message_runtime
-)
+install(TARGETS
+  ${PROJECT_NAME}_node
+  DESTINATION lib/${PROJECT_NAME})
 
-include_directories(
-	include/${PROJECT_NAME}
-	${catkin_INCLUDE_DIRS}
-	${YAML_CPP_INCLUDE_DIRS}
-)
+# Tests
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
 
-add_executable(${PROJECT_NAME} src/node.cpp src/yaml.cpp)
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${YAML_CPP_LIBRARIES})
+  # Disable auto copyright
+  set(ament_cmake_copyright_FOUND TRUE)
+  # Disable auto uncrustify
+  set(ament_cmake_uncrustify_FOUND TRUE)
 
-add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()

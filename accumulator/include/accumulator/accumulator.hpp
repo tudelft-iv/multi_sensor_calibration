@@ -17,7 +17,8 @@
 */
 
 #pragma once
-#include "yaml.hpp"
+
+#include "accumulator/yaml.hpp"
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -26,22 +27,29 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl_ros/point_cloud.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <std_srvs/Empty.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <string>
-#include <map>
+
+#include <chrono>
 #include <functional>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include <accumulator/AccumulatedPatterns.h>
-#include <accumulator/SendPatterns.h>
-#include <accumulator/SendString.h>
-#include <accumulator/SendUInt.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_srvs/srv/empty.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <calibration_interfaces/msg/accumulated_patterns.hpp>
+#include <calibration_interfaces/srv/send_patterns.hpp>
+#include <calibration_interfaces/srv/send_string.hpp>
+#include <calibration_interfaces/srv/send_u_int.hpp>
 
+using std::placeholders::_1;
+using std::placeholders::_2;
 
 namespace accumulator {
+
+using PointCloud2 = sensor_msgs::msg::PointCloud2;
 
 /// Configuration of euclidean cluster extraction
 struct EuclideanConfig {
@@ -74,7 +82,7 @@ namespace {
 	}
 
 	/// Creates a PointCloud with Nan
-	pcl::PointCloud<pcl::PointXYZ> createNanPointcloud(int nr_detections) {
+	pcl::PointCloud<pcl::PointXYZ> createNanPointcloud(unsigned int nr_detections) {
 		pcl::PointCloud<pcl::PointXYZ> clusters;
 		const float nan_point = std::numeric_limits<float>::quiet_NaN();
 		for (size_t i =  0; i < nr_detections; i++) {
@@ -89,8 +97,8 @@ namespace {
 	}
 
 	/// Convert a pcl point to a geometry msgs point
-	geometry_msgs::Point toRos(pcl::PointXYZ const & point) {
-		geometry_msgs::Point out;
+	geometry_msgs::msg::Point toRos(pcl::PointXYZ const & point) {
+		geometry_msgs::msg::Point out;
 		out.x = point.x;
 		out.y = point.y;
 		out.z = point.z;
@@ -98,24 +106,24 @@ namespace {
 	}
 
 	/// Conversion between pcl and ros point cloud type
-	sensor_msgs::PointCloud2 toRos(pcl::PointCloud<pcl::PointXYZ> const & in) {
-		sensor_msgs::PointCloud2 out;
+	PointCloud2 toRos(pcl::PointCloud<pcl::PointXYZ> const & in) {
+		PointCloud2 out;
 		pcl::toROSMsg(in, out);
 		return out;
 	}
 
 	/// Conversion between pcl and ros point cloud type
-	pcl::PointCloud<pcl::PointXYZ> toPcl(sensor_msgs::PointCloud2 const & in) {
+	pcl::PointCloud<pcl::PointXYZ> toPcl(PointCloud2 const & in) {
 		pcl::PointCloud<pcl::PointXYZ> out;
 		pcl::fromROSMsg(in, out);
 		return out;
 	}
 
 	/// Conversion between c++ struct of accumulated board locations and message to be used with service call to optimizer. Returns a vector (multiple sensors), and for each sensor an array of clouds (since we have multiple board locations)
-	std::vector<accumulator::AccumulatedPatterns> toRos(std::map<std::string, std::vector<pcl::PointCloud<pcl::PointXYZ> > > const & in) {
-		std::vector<accumulator::AccumulatedPatterns> out;
+	std::vector<calibration_interfaces::msg::AccumulatedPatterns> toRos(std::map<std::string, std::vector<pcl::PointCloud<pcl::PointXYZ> > > const & in) {
+		std::vector<calibration_interfaces::msg::AccumulatedPatterns> out;
 		for (const auto & sensor : in) {
-			accumulator::AccumulatedPatterns msg;
+			calibration_interfaces::msg::AccumulatedPatterns msg;
 			msg.sensor.data = sensor.first;
 			for (const auto & cloud : sensor.second) {
 				msg.patterns.push_back(toRos(cloud));
@@ -166,7 +174,7 @@ namespace {
 		return cluster_indices;
 	}
 
-	pcl::PointCloud<pcl::PointXYZ> extractClusterCenters(pcl::PointCloud<pcl::PointXYZ> const & cloud, std::vector<pcl::PointIndices> const & cluster_indices, int nr_output_clusters) {
+	pcl::PointCloud<pcl::PointXYZ> extractClusterCenters(pcl::PointCloud<pcl::PointXYZ> const & cloud, std::vector<pcl::PointIndices> const & cluster_indices, unsigned int nr_output_clusters) {
 		// Create centers cloud
 		pcl::PointCloud<pcl::PointXYZ> centers;
 		centers.header = cloud.header;
@@ -198,10 +206,10 @@ namespace {
 		return cloud_xy;
 	}
 	/// Convert a point cloud to a marker of spheres
-	visualization_msgs::Marker toArc(sensor_msgs::PointCloud2 const & cloud, std_msgs::ColorRGBA const & color, float & maximum_elevation_degrees) {
-		visualization_msgs::Marker marker;
-		marker.action          = visualization_msgs::Marker::ADD;
-		marker.type            = visualization_msgs::Marker::LINE_STRIP;
+	visualization_msgs::msg::Marker toArc(PointCloud2 const & cloud, std_msgs::msg::ColorRGBA const & color, float & maximum_elevation_degrees) {
+		visualization_msgs::msg::Marker marker;
+		marker.action          = visualization_msgs::msg::Marker::ADD;
+		marker.type            = visualization_msgs::msg::Marker::LINE_STRIP;
 		marker.header.frame_id = cloud.header.frame_id;
 		marker.header.stamp = cloud.header.stamp;
 		pcl::PointCloud<pcl::PointXYZ> pcl_cloud = toPcl(cloud);
@@ -212,13 +220,13 @@ namespace {
 			// Transform to polar:
 			float range = sqrt(point2d.x*point2d.x + point2d.y*point2d.y);
 			float azimuth = atan2(point2d.y, point2d.x);
-			
+
 			float max_el = maximum_elevation_degrees*M_PI/180; // TODO: should be to config
-			int nr_line_segements = 25;
-			float delta = 2*max_el/nr_line_segements; 
+			unsigned int nr_line_segements = 25;
+			float delta = 2*max_el/nr_line_segements;
 			for (size_t n = 0; n < nr_line_segements; n++) {
 				// Get elevation angle
-				float elevation = -max_el + delta*n; 
+				float elevation = -max_el + delta*n;
 				// Covert back to x,y,z
 				pcl::PointXYZ t;
 				t.x = range * cos(azimuth) * cos(elevation);
@@ -236,10 +244,10 @@ namespace {
 	}
 
 	/// Convert a point cloud to a marker of spheres
-	visualization_msgs::Marker toMarker(sensor_msgs::PointCloud2 const & cloud, std_msgs::ColorRGBA const & color) {
-		visualization_msgs::Marker marker;
-		marker.action          = visualization_msgs::Marker::ADD;
-		marker.type            = visualization_msgs::Marker::POINTS;
+	visualization_msgs::msg::Marker toMarker(PointCloud2 const & cloud, std_msgs::msg::ColorRGBA const & color) {
+		visualization_msgs::msg::Marker marker;
+		marker.action          = visualization_msgs::msg::Marker::ADD;
+		marker.type            = visualization_msgs::msg::Marker::POINTS;
 		marker.header.frame_id = cloud.header.frame_id;
 		marker.header.stamp = cloud.header.stamp;
 		pcl::PointCloud<pcl::PointXYZ> pcl_cloud = toPcl(cloud);
@@ -254,10 +262,10 @@ namespace {
 	}
 
 	/// Create a text marker to visualize the index of the collected pattern
-	visualization_msgs::Marker toMarker(std::string const & frame_id, sensor_msgs::PointCloud2 const & cloud, int const index, std_msgs::ColorRGBA const & color) {
-		visualization_msgs::Marker marker;
-		marker.action          = visualization_msgs::Marker::ADD;
-		marker.type            = visualization_msgs::Marker::TEXT_VIEW_FACING;
+	visualization_msgs::msg::Marker toMarker(std::string const & frame_id, PointCloud2 const & cloud, int const index, std_msgs::msg::ColorRGBA const & color) {
+		visualization_msgs::msg::Marker marker;
+		marker.action          = visualization_msgs::msg::Marker::ADD;
+		marker.type            = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
 		marker.header.frame_id = frame_id;
 		marker.header.stamp = cloud.header.stamp;
 		marker.color = color;
@@ -270,10 +278,10 @@ namespace {
 	}
 
 	/// Returns a color based on the hash of a string to make it more or less random so that each sensor, regardless of amount and name, has a different color with respect to each other
-	std_msgs::ColorRGBA getColor(std::string const & sensor) {
+	std_msgs::msg::ColorRGBA getColor(std::string const & sensor) {
 		std::hash<std::string> hasher;
 		std::size_t hashed = hasher(sensor);
-		std_msgs::ColorRGBA color;
+		std_msgs::msg::ColorRGBA color;
 		color.r = float(hashed % 2) / 2;
 		color.g = float(hashed % 3) / 3;
 		color.b = float(hashed % 3) / 4;
@@ -284,76 +292,99 @@ namespace {
 }
 
 /// Accumulates calibration pattern point clouds, cluster extraction after accumulation and sends the patterns to the optimizer to get the calibration
-class AccumulatorNode {
+class AccumulatorNode : public rclcpp::Node {
 public:
 	/// Constructor taking the node handle as a member variable
-	AccumulatorNode(ros::NodeHandle & nh) : nh_(nh), accumulate_(false) {
-		ROS_INFO_STREAM("Accumulator node initialized.");
-
+	AccumulatorNode() : Node("accumlator"), accumulate_(false) {
 		// Load dynamic number of sensor topics, to be configured on the ros parameter server, defaulting to the values listed
-		std::vector<std::string> sensor_pattern_topics;
 		// NOTE: topic name is important because the optimizer needs to know which sensor it is
 		// For instance, the topic name requirement is that a lidar sensor should contain 'lidar' in the name.
 		// Furthermore, stereo camera should contain 'stereo', monocular camera should contain 'mono' and radar sensor should contain 'radar')
-		nh_.param<std::vector<std::string> >("sensor_topics", sensor_pattern_topics, {"/stereo_detector/stereo_pattern", "/lidar_detector/lidar_pattern", "/radar_detector/radar_pattern"});
+		this->declare_parameter("sensor_topics",
+			std::vector<std::string> {
+				"/stereo_detector/stereo_pattern",
+				"/lidar_detector/lidar_pattern",
+				"/radar_detector/radar_pattern"});
+		std::vector<std::string> sensor_pattern_topics = this->get_parameter("sensor_topics").as_string_array();
 
 		// Load config for euclidean clustering of accumulated detections
-		nh_.param<float>("cluster_tolerance", euclidean_config_.cluster_tolerance, 0.03);
-		nh_.param<int>("min_cluster_size", euclidean_config_.min_cluster_size, 1);
-		nh_.param<int>("max_cluster_size", euclidean_config_.max_cluster_size, 1E3);
-		nh_.param<float>("maximum_elevation_angle", maximum_elevation_angle_, 9); //Maximum elevation angle of radar, just for visualisation message.
+		this->declare_parameter("cluster_tolerance", 0.03);
+		euclidean_config_.cluster_tolerance = this->get_parameter("cluster_tolerance").as_double();
+		this->declare_parameter("min_cluster_size", 1);
+		euclidean_config_.min_cluster_size = this->get_parameter("min_cluster_size").as_int();
+		this->declare_parameter("max_cluster_size", 1000);
+		euclidean_config_.max_cluster_size = this->get_parameter("max_cluster_size").as_int();
+		this->declare_parameter("maximum_elevation_angle", 9.0);
+		maximum_elevation_angle_ = this->get_parameter("maximum_elevation_angle").as_double();
 
 		// Identifier of the optimizer to call service
-		nh_.param<std::string>("optimize_srv", optimize_srv_, "/optimizer/optimize");
+		this->declare_parameter("optimize_srv", "/optimizer/optimize");
+		optimize_srv_ = this->get_parameter("optimize_srv").as_string();
 
 		// number of output clusters of radar and non-radar (lidar and camera)
 		nr_output_clusters_radar_ = 1;
 		nr_output_clusters_non_radar_ = 4;
 
-		service_save_              = nh_.advertiseService("save", &AccumulatorNode::save, this);
-		service_load_              = nh_.advertiseService("load", &AccumulatorNode::load, this);
-		service_toggle_accumulate_ = nh_.advertiseService("toggle_accumulate", &AccumulatorNode::toggleRecord, this);
-		service_optimize_          = nh_.advertiseService("optimize", &AccumulatorNode::optimize, this);
-		service_remove_            = nh_.advertiseService("remove", &AccumulatorNode::remove, this);
+		service_save_              = this->create_service<calibration_interfaces::srv::SendString>(
+			"save", std::bind(&AccumulatorNode::save, this, _1, _2));
+		service_load_              = this->create_service<calibration_interfaces::srv::SendString>(
+			"load", std::bind(&AccumulatorNode::load, this, _1, _2));
+		service_toggle_accumulate_ = this->create_service<std_srvs::srv::Empty>(
+			"toggle_accumulate", std::bind(&AccumulatorNode::toggleRecord, this, _1, _2));
+		service_optimize_          = this->create_service<std_srvs::srv::Empty>(
+			"optimize", std::bind(&AccumulatorNode::optimize, this, _1, _2));
+		service_remove_            = this->create_service<calibration_interfaces::srv::SendUInt>(
+			"remove", std::bind(&AccumulatorNode::remove, this, _1, _2));
+
+		client_optimize_					 = this->create_client<calibration_interfaces::srv::SendPatterns>(
+			optimize_srv_);
 
 		// Create the dynamic amount of ros subscribers for the detected patterns on various topics, one topic for each sensor to be calibrated
-		for (std::string const & topic : sensor_pattern_topics) {
+		for (const std::string & topic : sensor_pattern_topics) {
 			current_location_patterns_.insert({topic, {}});
 			accumulated_locations_.insert({topic, {}});
-			subscribers_.push_back(nh_.subscribe<pcl::PointCloud<pcl::PointXYZ> >(topic, 1, boost::bind(&AccumulatorNode::callback, this, _1, topic)));
+
+			// needs to be std::function, otherwise create_subscription doesn't recognize type
+			std::function<void(PointCloud2::ConstSharedPtr)> fun = std::bind(
+				&AccumulatorNode::callback, this, _1, topic);
+			auto subscription = this->create_subscription<PointCloud2>(topic, 1, fun);
+			subscribers_.push_back(subscription);
 		}
 
 		// Setup visualization markers publisher
-		markers_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("accumulated_patterns", 10);
+  	markers_publisher_  = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+			"accumulated_patterns", 10);
+
+		RCLCPP_INFO_STREAM(get_logger(), "Accumulator node initialized.");
 	}
 
 private:
-	/// Ros node handle for ros communication
-	ros::NodeHandle nh_;
-
 	/// Vector of subscribers, one for every sensor to be calibrated
-	std::vector<ros::Subscriber> subscribers_;
+	std::vector<rclcpp::Subscription<PointCloud2>::SharedPtr> subscribers_;
 
 	/// Visualization marker array to visualize accumulated patterns
-	ros::Publisher markers_publisher_;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr markers_publisher_;
 
 	/// Record (accumulate) if user sends a start accumulate service call until user sends a stop accumulate service call
 	bool accumulate_;
 
 	/// Service server exposed to let the user control accumulating
-	ros::ServiceServer service_toggle_accumulate_;
+	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr service_toggle_accumulate_;
 
 	/// Service server exposed to let the user start optimization
-	ros::ServiceServer service_optimize_;
+	rclcpp::Service<std_srvs::srv::Empty>::SharedPtr service_optimize_;
 
 	/// Service server exposed to save accumulated board locations to file
-	ros::ServiceServer service_save_;
+	rclcpp::Service<calibration_interfaces::srv::SendString>::SharedPtr service_save_;
 
 	/// Service server exposed to load accumulated board locations from file (does not append to what's collected so far)
-	ros::ServiceServer service_load_;
+	rclcpp::Service<calibration_interfaces::srv::SendString>::SharedPtr service_load_;
 
 	/// Service server exposed to load accumulated board locations from file (does not append to what's collected so far)
-	ros::ServiceServer service_remove_;
+	rclcpp::Service<calibration_interfaces::srv::SendUInt>::SharedPtr service_remove_;
+
+	// Service client to call optimization with accumulated patterns
+	rclcpp::Client<calibration_interfaces::srv::SendPatterns>::SharedPtr client_optimize_;
 
 	/// Contains for each sensor (string) a vector of different board locations
 	std::map<std::string, std::vector<pcl::PointCloud<pcl::PointXYZ> > > accumulated_locations_;
@@ -368,8 +399,8 @@ private:
 	std::string optimize_srv_;
 
 	// Number of output detections for radar
-	int nr_output_clusters_radar_;
-	int nr_output_clusters_non_radar_;
+	unsigned int nr_output_clusters_radar_;
+	unsigned int nr_output_clusters_non_radar_;
 	float maximum_elevation_angle_;
 
 	/// Check if the pattern is from a radar
@@ -408,21 +439,21 @@ private:
 	}
 
 	/// Record function to be switched when service is called by user
-	bool toggleRecord(std_srvs::Empty::Request & req, std_srvs::Empty::Response & res) {
+	void toggleRecord(std_srvs::srv::Empty::Request::ConstSharedPtr /*req*/, std_srvs::srv::Empty::Response::SharedPtr /*res*/) {
 		accumulate_ = !accumulate_;
-		ROS_INFO_STREAM("Recording " << (accumulate_ ? "true" : "false"));
+		RCLCPP_INFO_STREAM(get_logger(), "Recording " << (accumulate_ ? "true" : "false"));
 		if (accumulate_) {
-			ROS_INFO_STREAM("New board location, starting accumulating with an empty 'current location accumulator'.");
+			RCLCPP_INFO_STREAM(get_logger(), "New board location, starting accumulating with an empty 'current location accumulator'.");
 			for (auto & c : current_location_patterns_) {
 				c.second.clear();
 			}
 		} else { // stop accumulate
-			ROS_INFO_STREAM("Done with current calibration board location.");
-			ROS_INFO_STREAM("Currently accumulated: " << accumulated_locations_.at(accumulated_locations_.begin()->first).size() << " calibration board locations.");
+			RCLCPP_INFO_STREAM(get_logger(), "Done with current calibration board location.");
+			RCLCPP_INFO_STREAM(get_logger(), "Currently accumulated: " << accumulated_locations_.at(accumulated_locations_.begin()->first).size() << " calibration board locations.");
 			// There is at least one detection for each sensor. Proceeding with cluster extraction.
 			for (auto & c : current_location_patterns_) { // Calculate center based on multiple frames using cluster extraction and store it in the accumulated locations
-				ROS_INFO_STREAM("Recorded " << c.second.size() << " detections for sensor " << c.first);
-				ROS_INFO_STREAM("Calculating and adding euclidean cluster for each sensor to the accumulated locations.");
+				RCLCPP_INFO_STREAM(get_logger(), "Recorded " << c.second.size() << " detections for sensor " << c.first);
+				RCLCPP_INFO_STREAM(get_logger(), "Calculating and adding euclidean cluster for each sensor to the accumulated locations.");
 
 				// Check if there are zero detections for a sensor
 				if (current_location_patterns_.at(c.first).size() == 0) {
@@ -445,7 +476,7 @@ private:
 					pcl::PointCloud<pcl::PointXYZ> clusters = extractClusterCenters(merged_pcl, cluster_indices, nr_output_clusters_radar_);
 
 					if (clusters.size() != nr_output_clusters_radar_) {
-						ROS_WARN_STREAM("Extracting clusters failed for sensor '" << c.first << "', adding an empty board location for this sensor.");
+						RCLCPP_WARN_STREAM(get_logger(), "Extracting clusters failed for sensor '" << c.first << "', adding an empty board location for this sensor.");
 					}
 					accumulated_locations_.at(c.first).push_back(clusters);
 
@@ -460,7 +491,7 @@ private:
 					pcl::PointCloud<pcl::PointXYZ> clusters = extractClusterCenters(merged_pcl, cluster_indices, nr_output_clusters_non_radar_);
 
 					if (clusters.size() != nr_output_clusters_non_radar_) {
-						ROS_WARN_STREAM("Extracting clusters failed for sensor '" << c.first << "', adding an empty board location for this sensor.");
+						RCLCPP_WARN_STREAM(get_logger(), "Extracting clusters failed for sensor '" << c.first << "', adding an empty board location for this sensor.");
 					}
 					accumulated_locations_.at(c.first).push_back(clusters);
 
@@ -469,76 +500,75 @@ private:
 				}
 			}
 		}
-		return true;
 	}
 
 	/// Calibrate with patterns collected so far
-	bool optimize(std_srvs::Empty::Request & req, std_srvs::Empty::Response & res) {
-		// Setup connection with optimizer and calibrate with accumulated patterns
-		ros::ServiceClient client = nh_.serviceClient<accumulator::SendPatterns>(optimize_srv_);
-		accumulator::SendPatterns srv;
-		srv.request.accumulated_patterns = toRos(accumulated_locations_);
-		ROS_INFO("Publishing markers.");
-		publishMarkers(srv.request.accumulated_patterns);
-		if (client.call(srv)) {
-			ROS_INFO_STREAM("Optimization service called");
+	void optimize(std_srvs::srv::Empty::Request::ConstSharedPtr /*req*/, std_srvs::srv::Empty::Response::SharedPtr /*res*/) {
+		using namespace std::chrono_literals;
+
+		// Calibrate with accumulated patterns
+		auto request = std::make_shared<calibration_interfaces::srv::SendPatterns::Request>();
+		request->accumulated_patterns = toRos(accumulated_locations_);
+		RCLCPP_INFO(get_logger(), "Publishing markers.");
+		publishMarkers(request->accumulated_patterns);
+
+		if (client_optimize_->wait_for_service(1s)) {
+			client_optimize_->async_send_request(request);
+			RCLCPP_INFO_STREAM(get_logger(), "Optimization service called");
 		} else {
-			ROS_ERROR_STREAM("Failed to call service to optimize on '" << optimize_srv_ << "'.");
+			RCLCPP_ERROR_STREAM(get_logger(), "Optimization service '"<< optimize_srv_  << "' not available.");
 		}
-		return true;
 	}
 
 	/// Save accumulated board locations to file
-	bool save(accumulator::SendString::Request & req, accumulator::SendString::Response & res) {
-		std::ofstream file(req.data.data);
+	void save(calibration_interfaces::srv::SendString::Request::ConstSharedPtr req, calibration_interfaces::srv::SendString::Response::SharedPtr /*res*/) {
+		std::ofstream file(req->data.data);
 		file << YAML::Node(accumulated_locations_);
-		return true;
 	}
 
 	/// Load accumulated board locations from file (does not append to what's collected so far)
-	bool load(accumulator::SendString::Request & req, accumulator::SendString::Response & res) {
-		accumulated_locations_ = YAML::LoadFile(req.data.data).as<std::map<std::string, std::vector<pcl::PointCloud<pcl::PointXYZ> > > >();
-		return true;
+	void load(calibration_interfaces::srv::SendString::Request::ConstSharedPtr req, calibration_interfaces::srv::SendString::Response::SharedPtr /*res*/) {
+		accumulated_locations_ = YAML::LoadFile(req->data.data).as<std::map<std::string, std::vector<pcl::PointCloud<pcl::PointXYZ> > > >();
 	}
 
 	/// Remove accumulated board location of a certain index
-	bool remove(accumulator::SendUInt::Request & req, accumulator::SendUInt::Response & res) {
-		int index = req.data.data;
+	void remove(calibration_interfaces::srv::SendUInt::Request::ConstSharedPtr req, calibration_interfaces::srv::SendUInt::Response::SharedPtr /*res*/) {
+		unsigned int index = req->data.data;
 		for (auto & sensor : accumulated_locations_) {
 			if (sensor.second.size() < index) {
-				ROS_WARN_STREAM("Cannot remove index '" << index << "', only '" << sensor.second.size() << "' accumulated board locations available.");
-				return true;
+				RCLCPP_WARN_STREAM(get_logger(), "Cannot remove index '" << index << "', only '" << sensor.second.size() << "' accumulated board locations available.");
+				return;
 			}
 			sensor.second.erase(sensor.second.begin() + index);
 		}
-		return true;
 	}
 
 	/// Point cloud callback function
-	void callback(pcl::PointCloud<pcl::PointXYZ>::ConstPtr const & in, std::string sensor_pattern_topic) {
-		ROS_INFO_ONCE("Receiving pattern.");
+	void callback(PointCloud2::ConstSharedPtr in, const std::string &sensor_pattern_topic) {
+		// pcl::PointCloud<pcl::PointXYZ>::ConstPtr const & in_pcl;
+		RCLCPP_INFO_ONCE(get_logger(), "Receiving pattern.");
 		if (accumulate_) {
-			current_location_patterns_.at(sensor_pattern_topic).push_back(*in);
+			current_location_patterns_.at(sensor_pattern_topic).push_back(toPcl(*in));
 		}
 	}
 
 	/// Publish markers of the accumulated patterns
-	void publishMarkers(std::vector<accumulator::AccumulatedPatterns> const & accumulated_locations_) {
-		visualization_msgs::MarkerArray marker_array;
+	void publishMarkers(std::vector<calibration_interfaces::msg::AccumulatedPatterns> const & accumulated_locations_) {
+		visualization_msgs::msg::MarkerArray marker_array;
 		size_t marker_id = 0; // Used to plot all detections
 		for (auto const & sensor : accumulated_locations_) {
-			std_msgs::ColorRGBA color = getColor(sensor.sensor.data);
+			std_msgs::msg::ColorRGBA color = getColor(sensor.sensor.data);
 			// Check if current sensor is the radar sensor
 			bool is_radar = isRadarPcl(toPcl(sensor.patterns.at(0)));
 
 			for (std::size_t i = 0; i < sensor.patterns.size(); ++i) {
 				// Plot detections
-				visualization_msgs::Marker detections = toMarker(sensor.patterns.at(i), color);
+				visualization_msgs::msg::Marker detections = toMarker(sensor.patterns.at(i), color);
 				detections.id = marker_id; // Each marker requires different ID
 				marker_id++;
 
-				// Plot 
-				visualization_msgs::Marker text = toMarker(sensor.patterns.at(i).header.frame_id, sensor.patterns.at(i), i, color);
+				// Plot
+				visualization_msgs::msg::Marker text = toMarker(sensor.patterns.at(i).header.frame_id, sensor.patterns.at(i), i, color);
 				text.id = marker_id; // Each marker requires different ID
 				marker_id++;
 
@@ -549,18 +579,18 @@ private:
 					detections.points.at(0).z = 0;
 					text.pose.position.z = -0.1;
 
-					visualization_msgs::Marker arc = toArc(sensor.patterns.at(i), color, maximum_elevation_angle_);
+					visualization_msgs::msg::Marker arc = toArc(sensor.patterns.at(i), color, maximum_elevation_angle_);
 					arc.id = marker_id; // Each marker requires different ID
 					marker_id++;
 					marker_array.markers.push_back(arc);
 				}
-				
+
 				// Push back markers:
 				marker_array.markers.push_back(detections);
 				marker_array.markers.push_back(text);
 			}
 		}
-		markers_publisher_.publish(marker_array);
+		markers_publisher_->publish(marker_array);
 	}
 };
 
