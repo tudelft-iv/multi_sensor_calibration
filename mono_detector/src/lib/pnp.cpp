@@ -16,50 +16,16 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "pnp.hpp"
-#include "util.hpp"
-#include "types.hpp"
+#include "mono_detector/pnp.hpp"
+
 #include <pcl/common/transforms.h>
+
+#include "mono_detector/util.hpp"
+#include "mono_detector/types.hpp"
 
 namespace mono_detector {
 
 namespace {
-
-	/// Rotate a cv point
-	cv::Point3f rotate(cv::Mat const & rvec, cv::Point3f const & point) {
-		cv::Mat rotation;
-		cv::Rodrigues(rvec, rotation);
-		cv::Mat mat(1, 3, CV_32FC1); // Or should this be 3x1?
-		mat.at<float>(0) = point.x;
-		mat.at<float>(1) = point.y;
-		mat.at<float>(2) = point.z;
-		mat = rotation * mat;
-		return {mat.at<float>(0), mat.at<float>(1), mat.at<float>(2)};
-	}
-
-	/// Translate a cv point
-	cv::Point3f translate(cv::Mat const & tvec, cv::Point3f const & point) {
-		return {
-			tvec.at<float>(0) + point.x,
-			tvec.at<float>(1) + point.y,
-			tvec.at<float>(2) + point.z
-		};
-	}
-
-	/// Isometry (rigid) transformation of a point using rvec, tvec
-	cv::Point3f transform(cv::Mat const & rvec, cv::Mat const & tvec, cv::Point3f const & point) {
-		return translate(tvec, rotate(rvec, point));
-	}
-
-	/// Transform a vector of points using an opencv rvec, tvec isometry
-	std::vector<cv::Point3f> transform(cv::Mat const & rvec, cv::Mat const & tvec, std::vector<cv::Point3f> const & points) {
-		std::vector<cv::Point3f> out;
-		for (const auto & point : points) {
-			out.push_back(transform(rvec, tvec, point));
-		}
-		return out;
-	}
-
 
 	/// Function to convert a vector of points to a 2-channel Mat for use in e.g. solvePnP
 	cv::Mat detectionToMat(std::vector<cv::Point2f> const & detection) {
@@ -98,6 +64,5 @@ Eigen::Isometry3f solvePose(
 
 	return toEigen(rvec, tvec);
 }
-
 
 }

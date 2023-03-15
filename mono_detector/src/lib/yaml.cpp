@@ -16,7 +16,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "yaml.hpp"
+#include "mono_detector/yaml.hpp"
 
 namespace YAML {
 

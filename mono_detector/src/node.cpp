@@ -16,16 +16,14 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "node_lib.hpp"
+#include "mono_detector/node_lib.hpp"
 
-int main(int argc, char * * argv) {
-	ros::init(argc, argv, "mono_detector");
+int main(int argc, char **argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<mono_detector::MonoDetectorNode>();
 
-	ros::NodeHandle private_node_handle("~");
-
-	mono_detector::MonoDetectorNode mono_detector_node(private_node_handle);
-
-	ros::spin();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
 
 	return 0;
 }

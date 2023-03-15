@@ -17,33 +17,31 @@
 */
 
 #pragma once
-#include "types.hpp"
-#include <ros/ros.h>
-#include <sensor_msgs/Image.h>
-#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/CameraInfo.h>
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+
+#include "mono_detector/types.hpp"
 
 namespace mono_detector {
 
 /// Class with a node, subscribing to image, camera info and publishes point cloud of calibration pattern
-class MonoDetectorNode {
+class MonoDetectorNode : public rclcpp::Node {
 public:
 	/// Constructor taking the node handle as a member variable
-	MonoDetectorNode(ros::NodeHandle & nh);
+	MonoDetectorNode();
 
 private:
-
-	/// Ros Node Handle to communicate with ros server
-	ros::NodeHandle nh_;
-
 	/// Publisher for resulting pattern point cloud
-	ros::Publisher point_cloud_publisher_;
+	rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_publisher_;
 
 	/// Subscriber for input images
-	ros::Subscriber image_subscriber_;
+	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscriber_;
 
 	/// Subscriber for camera info
-	ros::Subscriber camera_info_subscriber_;
+	rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_subscriber_;
 
 	/// Configuration of parameters, intrinsics, visualization
 	Configuration config_;
@@ -56,10 +54,10 @@ private:
 	std::vector<cv::Point3f> object_points_;
 
 	/// Image callback, subscribes to image, detects pattern and publishes pattern point cloud
-	void imageCallback(sensor_msgs::ImageConstPtr const & in);
+	void imageCallback(sensor_msgs::msg::Image::ConstSharedPtr const & in);
 
 	/// Camera info callback
-	void cameraInfoCallback(sensor_msgs::CameraInfo const & camera_info);
+	void cameraInfoCallback(sensor_msgs::msg::CameraInfo const & camera_info);
 };
 
 }

@@ -16,25 +16,32 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "node_lib.hpp"
-#include "detector.hpp"
-#include "pnp.hpp"
-#include "util.hpp"
-#include "yaml.hpp"
-#include <ros/console.h>
-#include <ros/package.h>
+#include "mono_detector/node_lib.hpp"
+
+#include <memory>
 #include <string>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <pcl/common/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+#include "mono_detector/detector.hpp"
+#include "mono_detector/pnp.hpp"
+#include "mono_detector/util.hpp"
+#include "mono_detector/yaml.hpp"
+
+using std::placeholders::_1;
 
 namespace mono_detector {
 
 
-MonoDetectorNode::MonoDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
-	ROS_INFO("Initialized mono detector.");
+MonoDetectorNode::MonoDetectorNode() : Node("mono_detector") {
+	RCLCPP_INFO(get_logger(), "Initialized mono detector.");
 
+	std::string package_share = ament_index_cpp::get_package_share_directory("mono_detector");
 	// Load object points from ros parameter server
-	std::string object_points_file;
-	nh_.param<std::string>("object_points_file", object_points_file, ros::package::getPath("mono_detector") + "/" + "config/object_points.yaml");
+	this->declare_parameter("object_points_file", package_share + "/config/object_points.yaml");
+	std::string object_points_file = this->get_parameter("object_points_file").get_parameter_value().get<std::string>();
 	object_points_ = YAML::LoadFile(object_points_file).as<std::vector<cv::Point3f>>();
 	cv::Point3f center = calculateCenter(object_points_);
 	std::sort(object_points_.begin(), object_points_.end(), [center](cv::Point3f a, cv::Point3f b) {
@@ -42,18 +49,22 @@ MonoDetectorNode::MonoDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
 	});
 
 	// Load configuration from file
-	std::string yaml_file;
-	nh_.param<std::string>("yaml_file", yaml_file, ros::package::getPath("mono_detector") + "/" + "config/image_processing.yaml");
+	this->declare_parameter("yaml_file", package_share + "/config/image_processing.yaml");
+	std::string yaml_file = this->get_parameter("yaml_file").get_parameter_value().get<std::string>();
 	config_ = YAML::LoadFile(yaml_file).as<mono_detector::Configuration>();
 
 	// Setup subscriber and publisher
-	image_subscriber_       = nh_.subscribe("/ueye/left/image_raw", 1, &MonoDetectorNode::imageCallback, this);
-	camera_info_subscriber_ = nh_.subscribe("/ueye/left/camera_info", 1, &MonoDetectorNode::cameraInfoCallback, this); // ToDo: Replace with camera subscriber for sync camera info
-	point_cloud_publisher_  = nh_.advertise<sensor_msgs::PointCloud2>("mono_pattern", 100);
+	image_subscriber_       = this->create_subscription<sensor_msgs::msg::Image>(
+		"/ueye/left/image_raw", 1, std::bind(&MonoDetectorNode::imageCallback, this, _1)
+	);
+	camera_info_subscriber_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
+		"/ueye/left/camera_info", 1, std::bind(&MonoDetectorNode::cameraInfoCallback, this, _1)
+	);
+	point_cloud_publisher_  = this->create_publisher<sensor_msgs::msg::PointCloud2>("mono_pattern", 100);
 }
 
-void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
-	ROS_INFO_ONCE("Receiving images.");
+void MonoDetectorNode::imageCallback(sensor_msgs::msg::Image::ConstSharedPtr const & in) {
+	RCLCPP_INFO_ONCE(get_logger(), "Receiving images.");
 	if (!intrinsics_received_) {
 		return;
 	}
@@ -72,20 +83,20 @@ void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
 		pcl::transformPointCloud(toPcl(object_points_), transformed_pattern, isometry);
 
 		// Publish pattern
-		ROS_INFO_ONCE("Detected a mono detector pattern point cloud at least once.");
-		sensor_msgs::PointCloud2 out;
+		RCLCPP_INFO_ONCE(get_logger(), "Detected a mono detector pattern point cloud at least once.");
+		sensor_msgs::msg::PointCloud2 out;
 		pcl::toROSMsg(transformed_pattern, out);
 		out.header = in->header;
-		point_cloud_publisher_.publish(out);
+		point_cloud_publisher_->publish(out);
 	} catch (DetectionException & e) {
-		ROS_WARN_STREAM_THROTTLE(10, "Detection failed: '" << e.what() << "'.");
+		RCLCPP_WARN_STREAM_THROTTLE(get_logger(), *get_clock(), 10, "Detection failed: '" << e.what() << "'.");
 	} catch (std::exception & e) {
-		ROS_ERROR_STREAM("Exception thrown: '" << e.what() << "'.");
+		RCLCPP_ERROR_STREAM(get_logger(), "Exception thrown: '" << e.what() << "'.");
 	}
 }
 
-void MonoDetectorNode::cameraInfoCallback(sensor_msgs::CameraInfo const & camera_info) {
-	ROS_INFO_ONCE("Receiving camera info.");
+void MonoDetectorNode::cameraInfoCallback(sensor_msgs::msg::CameraInfo const & camera_info) {
+	RCLCPP_INFO_ONCE(get_logger(), "Receiving camera info.");
 	// ToDo: Use message filters to make sure to get both camera info and image
 	intrinsics_.fromCameraInfo(camera_info);
 	intrinsics_received_ = true;

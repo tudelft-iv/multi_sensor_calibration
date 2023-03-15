@@ -17,9 +17,12 @@
 */
 
 #pragma once
-#include <opencv2/opencv.hpp>
+
 #include <array>
-#include "types.hpp"
+
+#include <opencv2/opencv.hpp>
+
+#include "mono_detector/types.hpp"
 
 namespace mono_detector {
 

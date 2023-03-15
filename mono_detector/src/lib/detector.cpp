@@ -16,10 +16,12 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "detector.hpp"
-#include "util.hpp"
-#include "types.hpp"
+#include "mono_detector/detector.hpp"
+
 #include <stdexcept>
+
+#include "mono_detector/util.hpp"
+#include "mono_detector/types.hpp"
 
 namespace mono_detector {
 

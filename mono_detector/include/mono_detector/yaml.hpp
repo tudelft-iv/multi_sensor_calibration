@@ -18,7 +18,7 @@
 
 #pragma once
 #include <yaml-cpp/yaml.h>
-#include "types.hpp"
+#include "mono_detector/types.hpp"
 
 namespace YAML {
 

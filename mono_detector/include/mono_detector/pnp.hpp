@@ -19,10 +19,10 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <stdexcept>
-#include "types.hpp"
-#include "util.hpp"
 #include <pcl/common/common.h>
-#include <image_geometry/pinhole_camera_model.h> // ToDo: Remove ros dependency
+
+#include "mono_detector/types.hpp"
+#include "mono_detector/util.hpp"
 
 namespace mono_detector {
 

@@ -17,10 +17,12 @@
 */
 
 #pragma once
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/distortion_models.h>
-#include <opencv2/opencv.hpp>
+
 #include <vector>
+
+#include <opencv2/opencv.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/distortion_models.hpp>
 
 namespace mono_detector {
 
@@ -34,18 +36,18 @@ struct CameraModel {
 	cv::Mat camera_matrix;
 	cv::Mat distortion_parameters;
 
-	void fromCameraInfo(sensor_msgs::CameraInfo camera_info) {
+	void fromCameraInfo(sensor_msgs::msg::CameraInfo camera_info) {
 		if (camera_info.distortion_model == sensor_msgs::distortion_models::PLUMB_BOB) {
 			distortion_model = DistortionModel::PINHOLE;
-			distortion_parameters = cv::Mat(1, 5, CV_32F, camera_info.D.data()).clone();
+			distortion_parameters = cv::Mat(1, 5, CV_32F, camera_info.d.data()).clone();
 		} else if (camera_info.distortion_model == sensor_msgs::distortion_models::EQUIDISTANT) {
 			distortion_model = DistortionModel::FISHEYE;
-			distortion_parameters = cv::Mat(1, 4, CV_32F, camera_info.D.data()).clone();
+			distortion_parameters = cv::Mat(1, 4, CV_32F, camera_info.d.data()).clone();
 		} else {
 			throw std::runtime_error("Unsupported distortion model: " + camera_info.distortion_model);
 		}
 
-		camera_matrix = cv::Mat(3, 3, CV_32F, camera_info.K.data()).clone();
+		camera_matrix = cv::Mat(3, 3, CV_32F, camera_info.k.data()).clone();
 	}
 };
 

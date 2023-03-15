@@ -17,20 +17,24 @@
 */
 
 #pragma once
-#include "detector.hpp"
+
+#include <array>
+#include <vector>
+
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <pcl/common/common.h>
-#include <sensor_msgs/Image.h>
-#include <vector>
-#include <array>
-#include <opencv2/core/eigen.hpp>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+
+#include "mono_detector/detector.hpp"
+#include "mono_detector/eigen.hpp"
+#include <opencv2/core/eigen.hpp> // needs to be after including Eigen
 
 namespace mono_detector {
 
-/// Free function to load config
-Configuration loadConfig(ros::NodeHandle & nh);
+// /// Free function to load config
+// Configuration loadConfig(rclcpp::Node & nh);
 
 // (pattern) cloud to yaml string conversion function (ToDo: Move to separate package, avoid code duplication)
 std::string toYaml(pcl::PointCloud<pcl::PointXYZ> const & cloud);
@@ -45,7 +49,7 @@ pcl::PointXYZ toPcl(cv::Point3f const & point);
 pcl::PointCloud<pcl::PointXYZ> toPcl(std::vector<cv::Point3f> const & points);
 
 /// Helper function to convert ROS image to OpenCV image
-cv::Mat toOpencv(const sensor_msgs::ImageConstPtr & in);
+cv::Mat toOpencv(const sensor_msgs::msg::Image::ConstSharedPtr & in);
 
 /// Conversion function
 std::vector<cv::Point2f> toCvPoint2fVector(std::vector<cv::Vec3f> const & circles);

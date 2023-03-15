@@ -16,8 +16,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "util.hpp"
-
+#include "mono_detector/util.hpp"
 
 namespace mono_detector {
 
@@ -62,7 +61,7 @@ pcl::PointCloud<pcl::PointXYZ> toPcl(std::vector<cv::Point3f> const & points) {
 	return out;
 }
 
-cv::Mat toOpencv(const sensor_msgs::ImageConstPtr & in) {
+cv::Mat toOpencv(const sensor_msgs::msg::Image::ConstSharedPtr & in) {
 	cv_bridge::CvImagePtr cv_ptr;
 	cv_ptr = cv_bridge::toCvCopy(in, in->encoding);
 	return cv_ptr->image;
