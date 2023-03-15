@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <array>
+#include <vector>
 
 #include <opencv2/opencv.hpp>
 
@@ -34,4 +34,4 @@ void detectMono(
   std::vector<float> & radi
 );
 
-}
+}  // namespace mono_detector

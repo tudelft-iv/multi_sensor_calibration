@@ -17,9 +17,13 @@
 */
 
 #pragma once
-#include <opencv2/opencv.hpp>
-#include <stdexcept>
+
 #include <pcl/common/common.h>
+
+#include <stdexcept>
+#include <vector>
+
+#include <opencv2/opencv.hpp>
 
 #include "mono_detector/types.hpp"
 #include "mono_detector/util.hpp"
@@ -33,4 +37,4 @@ Eigen::Isometry3f solvePose(
   CameraModel const & intrinsics
 );
 
-}
+}  // namespace mono_detector

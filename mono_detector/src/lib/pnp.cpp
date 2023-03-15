@@ -36,7 +36,7 @@ namespace {
     return result;
   }
 
-}
+}  // namespace
 
 /// Solves the pose using opencv pnp and returns the transformed point cloud of object points
 Eigen::Isometry3f solvePose(
@@ -48,21 +48,26 @@ Eigen::Isometry3f solvePose(
   // as this way we can support both pinhole and fisheye models.
   cv::Mat undistorted = cv::Mat::zeros(1, 4, CV_32FC2);
   if (intrinsics.distortion_model == CameraModel::DistortionModel::PINHOLE) {
-    cv::undistortPoints(detectionToMat(image_points), undistorted, intrinsics.camera_matrix, intrinsics.distortion_parameters);
+    cv::undistortPoints(detectionToMat(image_points), undistorted,
+                        intrinsics.camera_matrix, intrinsics.distortion_parameters);
   } else {
-    cv::fisheye::undistortPoints(detectionToMat(image_points), undistorted, intrinsics.camera_matrix, intrinsics.distortion_parameters);
+    cv::fisheye::undistortPoints(detectionToMat(image_points), undistorted,
+                                 intrinsics.camera_matrix, intrinsics.distortion_parameters);
   }
 
-  std::vector<double> rvec, tvec; // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
+  // Unfortunately we can only work with double in solvepnp or otherwise assertion violated
+  std::vector<double> rvec, tvec;
   cv::Mat camera_matrix_eye = cv::Mat::eye(3, 3, CV_32F);
   cv::Mat distortion_parameters_zeros = cv::Mat::zeros(1, 5, CV_32F);
 
   // Solve pose using known points
-  if (!solvePnP(object_points, undistorted, camera_matrix_eye, distortion_parameters_zeros, rvec, tvec, false)) {
+  bool result = solvePnP(object_points, undistorted, camera_matrix_eye,
+                         distortion_parameters_zeros, rvec, tvec, false);
+  if (!result) {
     throw std::runtime_error("Unable to solve PnP");
   }
 
   return toEigen(rvec, tvec);
 }
 
-}
+}  // namespace mono_detector

@@ -21,7 +21,6 @@
 #include <gtest/gtest.h>
 
 TEST(Yaml, parseConfig) {
-
   // Setup some particular configuration
   mono_detector::Configuration expected;
   expected.pre_blur.ksize_x = 5;

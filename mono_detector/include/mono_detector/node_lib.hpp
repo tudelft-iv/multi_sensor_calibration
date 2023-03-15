@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -27,10 +29,9 @@
 
 namespace mono_detector {
 
-/// Class with a node, subscribing to image, camera info and publishes point cloud of calibration pattern
+/// Node, subscribing to image, camera info and publishes point cloud of calibration pattern
 class MonoDetectorNode : public rclcpp::Node {
 public:
-  /// Constructor taking the node handle as a member variable
   MonoDetectorNode();
 
 private:
@@ -60,5 +61,4 @@ private:
   void cameraInfoCallback(sensor_msgs::msg::CameraInfo const & camera_info);
 };
 
-}
-
+}  // namespace mono_detector

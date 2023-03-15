@@ -18,40 +18,39 @@
 
 #pragma once
 
+#include <cv_bridge/cv_bridge.h>
+#include <pcl/common/common.h>
+
 #include <array>
+#include <string>
 #include <vector>
 
-#include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
-#include <pcl/common/common.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
 #include "mono_detector/detector.hpp"
 #include "mono_detector/eigen.hpp"
-#include <opencv2/core/eigen.hpp> // needs to be after including Eigen
+#include <opencv2/core/eigen.hpp>  // needs to be after including Eigen
 
 namespace mono_detector {
 
-// /// Free function to load config
-// Configuration loadConfig(rclcpp::Node & nh);
-
-// (pattern) cloud to yaml string conversion function (ToDo: Move to separate package, avoid code duplication)
+// cloud to yaml string conversion function (ToDo: Move to separate package, avoid code duplication)
 std::string toYaml(pcl::PointCloud<pcl::PointXYZ> const & cloud);
 
-/// Convert opencv rvec tvec (double, for solvepnp) to an eigen isometry (float, for pcl)
+// Convert opencv rvec tvec (double, for solvepnp) to an eigen isometry (float, for pcl)
 Eigen::Isometry3f toEigen(std::vector<double> const & rvec, std::vector<double> const & tvec);
 
-/// Helper function to convert between opencv and pcl
+// Helper function to convert between opencv and pcl
 pcl::PointXYZ toPcl(cv::Point3f const & point);
 
-/// Helper function to convert between opencv and pcl
+// Helper function to convert between opencv and pcl
 pcl::PointCloud<pcl::PointXYZ> toPcl(std::vector<cv::Point3f> const & points);
 
-/// Helper function to convert ROS image to OpenCV image
+// Helper function to convert ROS image to OpenCV image
 cv::Mat toOpencv(const sensor_msgs::msg::Image::ConstSharedPtr & in);
 
-/// Conversion function
+// Conversion function
 std::vector<cv::Point2f> toCvPoint2fVector(std::vector<cv::Vec3f> const & circles);
 
 // Wrapper to apply gaussian blur
@@ -63,10 +62,10 @@ cv::Point2f calculateCenter(std::vector<cv::Point2f> const & in);
 // Calculate the center of a vector of points
 cv::Point3f calculateCenter(std::vector<cv::Point3f> const & in);
 
-/// visualize (blocking window until key press)
+// visualize (blocking window until key press)
 void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv::Rect const & roi);
 
 // Compute median circle for certain dimension
 std::vector<double> compute_median_circle(std::vector<cv::Vec3f> const & circles);
 
-}
+}  // namespace mono_detector

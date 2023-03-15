@@ -41,7 +41,8 @@ Node convert<mono_detector::CannyConfig>::encode(const mono_detector::CannyConfi
   node["max_threshold"] = std::to_string(config.max_threshold);
   return node;
 }
-bool convert<mono_detector::CannyConfig>::decode(const Node & node, mono_detector::CannyConfig & config) {
+bool convert<mono_detector::CannyConfig>::decode(const Node & node,
+                                                 mono_detector::CannyConfig & config) {
   config.apply          = node["apply"].as<bool>();
   config.min_threshold  = node["min_threshold"].as<int>();
   config.max_threshold  = node["max_threshold"].as<int>();
@@ -57,7 +58,8 @@ Node convert<mono_detector::GaussConfig>::encode(const mono_detector::GaussConfi
   node["sigma_y"]       = std::to_string(config.sigma_y);
   return node;
 }
-bool convert<mono_detector::GaussConfig>::decode(const Node & node, mono_detector::GaussConfig & config) {
+bool convert<mono_detector::GaussConfig>::decode(const Node & node,
+                                                 mono_detector::GaussConfig & config) {
   config.apply          = node["apply"].as<bool>();
   config.ksize_x        = node["ksize_x"].as<int>();
   config.ksize_y        = node["ksize_y"].as<int>();
@@ -76,7 +78,8 @@ Node convert<mono_detector::HoughConfig>::encode(const mono_detector::HoughConfi
   node["max_radius"]    = std::to_string(config.max_radius);
   return node;
 }
-bool convert<mono_detector::HoughConfig>::decode(const Node & node, mono_detector::HoughConfig & config) {
+bool convert<mono_detector::HoughConfig>::decode(const Node & node,
+                                                 mono_detector::HoughConfig & config) {
   config.dp             = node["dp"].as<double>();
   config.min_dist       = node["min_dist"].as<double>();
   config.param1         = node["param1"].as<double>();
@@ -96,7 +99,8 @@ Node convert<mono_detector::Configuration>::encode(const mono_detector::Configur
   node["visualize"]     = config.visualize ? "true" : "false";
   return node;
 }
-bool convert<mono_detector::Configuration>::decode(const Node & node, mono_detector::Configuration & config) {
+bool convert<mono_detector::Configuration>::decode(const Node & node,
+                                                   mono_detector::Configuration & config) {
   config.pre_blur       = node["pre_gauss"].as<mono_detector::GaussConfig>();
   config.edge_detection = node["canny"].as<mono_detector::CannyConfig>();
   config.post_blur      = node["post_gauss"].as<mono_detector::GaussConfig>();
@@ -122,5 +126,4 @@ bool convert<cv::Rect>::decode(const Node & node, cv::Rect & config) {
   return true;
 }
 
-
-}
+}  // namespace YAML

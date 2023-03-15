@@ -77,7 +77,8 @@ std::vector<cv::Point2f> toCvPoint2fVector(std::vector<cv::Vec3f> const & circle
 
 cv::Mat gaussianBlur(cv::Mat const & image, GaussConfig const & config) {
   cv::Mat result;
-  cv::GaussianBlur(image, result, cv::Size(config.ksize_x, config.ksize_y), config.sigma_x, config.sigma_y);
+  cv::GaussianBlur(image, result, cv::Size(config.ksize_x, config.ksize_y),
+                   config.sigma_x, config.sigma_y);
   return result;
 }
 
@@ -105,7 +106,8 @@ cv::Point3f calculateCenter(std::vector<cv::Point3f> const & in) {
   return out;
 }
 
-void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv::Rect const & roi) {
+void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles,
+               cv::Rect const & roi) {
   cv::Mat draw = image.clone();
   if (draw.channels() == 1) {
     cv::cvtColor(draw, draw, cv::COLOR_GRAY2BGR);
@@ -143,4 +145,4 @@ std::vector<double> compute_median_circle(std::vector<cv::Vec3f> const & circles
   return median_vector;
 }
 
-}
+}  // namespace mono_detector

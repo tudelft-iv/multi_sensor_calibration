@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include <opencv2/opencv.hpp>
@@ -53,7 +54,7 @@ struct CameraModel {
 
 class DetectionException : public std::runtime_error {
 public:
-    explicit DetectionException(const std::string& message) : std::runtime_error(message) {};
+    explicit DetectionException(const std::string& message) : std::runtime_error(message) {}
 };
 
 struct GaussConfig {
@@ -88,4 +89,4 @@ struct Configuration {
   bool visualize;
 };
 
-}
+}  // namespace mono_detector

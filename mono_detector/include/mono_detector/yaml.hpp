@@ -58,4 +58,4 @@ struct convert<cv::Rect> {
   static bool decode(const Node & node, cv::Rect & config);
 };
 
-}
+}  // namespace YAML

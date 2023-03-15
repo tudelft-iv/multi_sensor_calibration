@@ -17,8 +17,11 @@
 */
 
 #pragma once
+
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+
+#include <string>
 
 namespace mono_detector {
 
@@ -75,4 +78,4 @@ inline std::string toYaml(const Eigen::Isometry3f & pose, std::string const & in
   return result;
 }
 
-}
+}  // namespace mono_detector
