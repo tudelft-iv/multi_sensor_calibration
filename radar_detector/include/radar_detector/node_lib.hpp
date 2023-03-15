@@ -27,38 +27,38 @@
 
 namespace radar_detector {
 
-/// Node, subscribing to a radar measurement and publishes transformed calibration pattern
+// Node, subscribing to a radar measurement and publishes transformed calibration pattern
 class RadarDetectorNode : public rclcpp::Node {
 public:
-	RadarDetectorNode();
+  RadarDetectorNode();
 
 private:
 
-	/// Define specfic RCS values range
-	float min_RCS_;
-	float max_RCS_;
-	float min_range_object_;
-	float max_range_object_;
-	bool select_range_;
-	bool select_min_;
+  // Define specfic RCS values range
+  float min_RCS_;
+  float max_RCS_;
+  float min_range_object_;
+  float max_range_object_;
+  bool select_range_;
+  bool select_min_;
 
-	/// Subscriber for radar messages point cloud
-	rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr radar_subscriber_;
+  // Subscriber for radar messages point cloud
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr radar_subscriber_;
 
-	/// Publisher for resulting pattern point cloud
-	rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pattern_publisher_;
+  // Publisher for resulting pattern point cloud
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pattern_publisher_;
 
-	/// Publisher for resulting pattern as a marker for rviz
-	rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
+  // Publisher for resulting pattern as a marker for rviz
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_;
 
-	/// Function to convert to a point cloud type and publish pattern
-	void publishPattern(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
+  // Function to convert to a point cloud type and publish pattern
+  void publishPattern(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
 
-	/// Function to convert to a marker and publish pattern
-	void publishMarker(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
+  // Function to convert to a marker and publish pattern
+  void publishMarker(pcl::PointXYZ const & point, std_msgs::msg::Header const & header);
 
-	/// Point cloud callback function
-	void callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in);
+  // Point cloud callback function
+  void callback(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in);
 
 };
 

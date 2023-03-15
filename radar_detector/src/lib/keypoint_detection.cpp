@@ -23,35 +23,36 @@
 namespace radar_detector {
 
 pcl::PointXYZ keypointDetection(const sensor_msgs::msg::PointCloud2::ConstSharedPtr& in,
-																float const min, float const max,
-																float const min_range, float const max_range,
-																bool const select_range, bool const select_min) {
-	pcl::PointXYZ point;
-	float best_candidate_value = select_min ? std::numeric_limits<float>::max() : std::numeric_limits<float>::lowest();
+                                float const min, float const max,
+                                float const min_range, float const max_range,
+                                bool const select_range, bool const select_min) {
+  pcl::PointXYZ point;
+  float best_candidate_value = select_min ? std::numeric_limits<float>::max() : std::numeric_limits<float>::lowest();
 
-	std::size_t n_points = (*in).width;
-	sensor_msgs::PointCloud2ConstIterator<float> iter_x(*in, "x");
-	sensor_msgs::PointCloud2ConstIterator<float> iter_y(*in, "y");
-	sensor_msgs::PointCloud2ConstIterator<float> iter_z(*in, "z");
-	sensor_msgs::PointCloud2ConstIterator<float> iter_rcs(*in, "RCS");
-	for (std::size_t i = 0; i < n_points; ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rcs) {
+  std::size_t n_points = (*in).width;
+  sensor_msgs::PointCloud2ConstIterator<float> iter_x(*in, "x");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_y(*in, "y");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_z(*in, "z");
+  sensor_msgs::PointCloud2ConstIterator<float> iter_rcs(*in, "RCS");
 
-		float x = *iter_x;
-		float y = *iter_y;
-		float range = sqrt(x*x + y*y); // compute range using x and y
-		float rcs = *iter_rcs; // RCS value
-		// select the best candidate either based on range or on rcs
-		float selection = select_range ? range : rcs;
-		// the best candidate can be either the lowest or the highest value
-		bool is_best_candidate = select_min ? selection < best_candidate_value : selection > best_candidate_value;
-		if (is_best_candidate && rcs > min && rcs < max && range < max_range && range > min_range) {
-			best_candidate_value = selection;
-			point.x = x;
-			point.y = y;
-			point.z = *iter_z;
-		}
-	}
-	return point;
+  for (std::size_t i = 0; i < n_points; ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rcs) {
+    float x = *iter_x;
+    float y = *iter_y;
+    float range = sqrt(x*x + y*y); // compute range using x and y
+    float rcs = *iter_rcs; // RCS value
+    // select the best candidate either based on range or on rcs
+    float selection = select_range ? range : rcs;
+    // the best candidate can be either the lowest or the highest value
+    bool is_best_candidate = select_min ? selection < best_candidate_value : selection > best_candidate_value;
+    if (is_best_candidate && rcs > min && rcs < max && range < max_range && range > min_range) {
+      best_candidate_value = selection;
+      point.x = x;
+      point.y = y;
+      point.z = *iter_z;
+    }
+  }
+
+  return point;
 }
 
 }

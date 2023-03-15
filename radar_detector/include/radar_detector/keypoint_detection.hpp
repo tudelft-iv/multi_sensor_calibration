@@ -23,7 +23,6 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
-
 namespace radar_detector {
     const std::string RCS_BASED_SELECTION = "rcs";
     const std::string RANGE_BASED_SELECTION = "range";
