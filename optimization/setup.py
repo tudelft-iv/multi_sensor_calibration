@@ -16,12 +16,33 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from distutils.core import setup
-from catkin_pkg.python_setup import generate_distutils_setup
+from setuptools import setup
 
-# fetch values from package.xml
-setup_args = generate_distutils_setup(
-    packages=['optimization'],
-    package_dir={'': 'src', '': 'lib/icp'})
+package_name = 'optimization'
 
-setup(**setup_args)
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=[package_name],
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    author='jfmdomhof',
+    author_email='j.f.m.domhof@tudelft.nl',
+    maintainer='jfmdomhof',
+    maintainer_email='j.f.m.domhof@tudelft.nl',
+    keywords=['ROS'],
+    description='The optimization package',
+    license='GPLv3',
+    tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'server = optimization.server:main',
+        ],
+    },
+)

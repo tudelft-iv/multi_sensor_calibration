@@ -17,8 +17,8 @@
 import numpy as np
 import math
 import rmsd
-from icp import *
-from .calibration_board import *
+from optimization.icp import *
+from optimization.optimization.calibration_board import *
 from scipy.optimize import linear_sum_assignment
 import warnings
 
@@ -346,7 +346,7 @@ def rotm2rodrigues(R):
 
 def rodrigues2rotm(v):
     #https://en.wikipedia.org/wiki/Rotation_matrix
-    
+
     theta = np.linalg.norm(v)
     if theta == 0:
         R = np.identity(3)
@@ -502,7 +502,7 @@ def reorder_pcl(X, nr_detections, type):
             pass
         else:
             raise Exception('Unknown sensor type')
-            
+
         Y[:, i * nr_detections:i * nr_detections + nr_detections] = Xcb
 
     return Y
@@ -549,7 +549,7 @@ def reorder_detections_sensors(sensors, reordering_mode, reference_sensor):
     index_reference_sensor = np.nan
     for i in range(len(sensors)):
         if sensors[i].name == reference_sensor:
-            index_reference_sensor = i    
+            index_reference_sensor = i
 
     # Check if reference sensor exists in sensors
     if np.isnan(index_reference_sensor):
@@ -609,7 +609,7 @@ def reorder_array(A, dim1, dim2):
     # dim1: dimension top down
     # dim2: dimension left right
     # dim1: postive means that ground floor is in positive axis direction.
-    # dim1: negative means that ground floor is in negative axis direction. 
+    # dim1: negative means that ground floor is in negative axis direction.
 
     if dim1 < 0:
         dim1 = abs(dim1)
@@ -695,7 +695,7 @@ def print_optimizer_slsqp_feedback(result):
         print('Gradient evaluation required (g & a)')
     else:
         warnings.warn("Unknown warning message!")
-    
+
     # Print succesfull/unsuccesful:
     if succesful_optimization:
         print("-------------------------------------")

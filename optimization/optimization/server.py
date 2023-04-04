@@ -17,20 +17,19 @@
 
 import sys
 import os
-import rospkg
-NAME = 'optimizer'
-pkg_name = rospkg.get_package_name(os.path.dirname(os.path.realpath(__file__)))
-pkg_dir = rospkg.RosPack().get_path(pkg_name)
-sys.path.append(pkg_dir + '/lib/icp') #Added for lib/icp folder in ROS
-from accumulator.srv import *
-import rospy
+
+import rclpy
 import numpy as np
-from optimization.io import *
-from optimization.calibration_board import *
-from optimization.helper_functions import *
-from optimization.config import *
-from optimization.optimize import joint_optimization,remove_non_visible_detections_in_reference_sensor
-import ros_numpy
+# import ros_numpy
+from rclpy.node import Node
+
+from calibration_interfaces.srv import SendPatterns
+from optimization.optimization.io import *
+from optimization.optimization.calibration_board import *
+from optimization.optimization.helper_functions import *
+from optimization.optimization.config import *
+from optimization.optimization.optimize import joint_optimization,remove_non_visible_detections_in_reference_sensor
+
 
 def print_service_call_message(msg):
     for i_sensor in range(len(msg.accumulated_patterns)):
@@ -38,7 +37,7 @@ def print_service_call_message(msg):
         for i in range(len(msg.accumulated_patterns[i_sensor].patterns)):
             pcl_cb = msg.accumulated_patterns[i_sensor].patterns[i]
             print('Calibration board location: ' + str(i))
-            print(ros_numpy.point_cloud2.pointcloud2_to_array(pcl_cb).shape)
+            # print(ros_numpy.point_cloud2.pointcloud2_to_array(pcl_cb).shape)
 
 
 def convert_tuple_to_list(pattern, nr_detections):
@@ -54,13 +53,15 @@ def get_pcl_sensor(msg, nr_detections):
     data = np.zeros((3, len(msg.patterns) * nr_detections))
     for i in range(len(msg.patterns)):
         # Convert ROS pointlcoud2 message to numpy array
-        pattern = ros_numpy.point_cloud2.pointcloud2_to_array(msg.patterns[i])
-        # Add into data numpy array - with conversion from numpy tuples to numpy list
-        data[:, i * nr_detections:(i + 1) * nr_detections] = convert_tuple_to_list(pattern, nr_detections)
+        # pattern = ros_numpy.point_cloud2.pointcloud2_to_array(msg.patterns[i])
+        # # Add into data numpy array - with conversion from numpy tuples to numpy list
+        # data[:, i * nr_detections:(i + 1) * nr_detections] = convert_tuple_to_list(pattern, nr_detections)
+        pass
 
     return data
 
-class optimizer_node():
+
+class OptimizerNode(Node):
     """ Optimizer node that receives service call from accumulator with all the detections and calls optimizer to compute all sensor poses
 
     ROS parameters:
@@ -69,34 +70,40 @@ class optimizer_node():
     """
 
     def __init__(self):
-        # Initialise ROS node
-        rospy.init_node(NAME)
+        super().__init__('optimizer')
+
+        self.declare_parameter("calibration_mode", 3)
+        self.declare_parameter("correspondences", "known")    # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
+        self.declare_parameter("reference_sensor", "velodyne")    # reference sensor
+        self.declare_parameter("export_detections_to_files", True)
+        self.declare_parameter("visualise", True)  # visualise result using matplotlib 3D visualisation
+        self.declare_parameter("results_folder", "results")  # os.path.join(pkg_dir, "results")
+        self.declare_parameter("detections_folder", "data")  # os.path.join(pkg_dir, "data")
+        self.declare_parameter("reordering", "based_on_reference_sensor")
+        self.declare_parameter("outlier_removal", "remove_board_locations")
 
         # Service call receiver
-        s = rospy.Service('/optimizer/optimize', SendPatterns, self.optimize)
+        s = self.create_service(SendPatterns, '/optimizer/optimize', self.optimize)
 
-        # spin() keeps Python from exiting until node is shutdown
-        rospy.spin()
-
-    def optimize(self, req):
+    def optimize(self, req, response):
         # Notifiy that service call is received:
         print('Received service call!')
 
         # Parameters for Joint Optimization:
-        calibration_mode = rospy.get_param("~calibration_mode", 3)
+        calibration_mode = self.get_parameter("calibration_mode").get_parameter_value().integer_value
         # Possible calibration modes:
             # 0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices
             # 1: Pose and Structure Estimation (PSE) with known observation covariance matrices
             # 2: Minimally Connected Pose Estimation (MCPE)
             # 3: Fully Connected Pose Estimation (FCPE)
-        correspondences = rospy.get_param("~correspondences", "known")    # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
-        reference_sensor = rospy.get_param("~reference_sensor", "velodyne")    # reference sensor
-        export_detections_to_files = rospy.get_param("~export_detections_to_files", True)
-        visualise = rospy.get_param("~visualise", True)  # visualise result using matplotlib 3D visualisation
-        results_folder = rospy.get_param("~results_folder", os.path.join(pkg_dir, "results"))
-        detections_folder = rospy.get_param("~detections_folder", os.path.join(pkg_dir, "data"))
-        reordering_method = rospy.get_param("~reordering", "based_on_reference_sensor")
-        outlier_removal_method = rospy.get_param("~outlier_removal", "remove_board_locations")
+        correspondences = self.get_parameter("correspondences").get_parameter_value().string_value   # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
+        reference_sensor = self.get_parameter("reference_sensor").get_parameter_value().string_value    # reference sensor
+        export_detections_to_files = self.get_parameter("export_detections_to_files").get_parameter_value().bool_value
+        visualise = self.get_parameter("visualise").get_parameter_value().bool_value  # visualise result using matplotlib 3D visualisation
+        results_folder = self.get_parameter("results_folder").get_parameter_value().string_value
+        detections_folder = self.get_parameter("detections_folder").get_parameter_value().string_value
+        reordering_method = self.get_parameter("reordering").get_parameter_value().string_value
+        outlier_removal_method = self.get_parameter("outlier_removal").get_parameter_value().string_value
 
         os.makedirs(results_folder, exist_ok=True)
         os.makedirs(detections_folder, exist_ok=True)
@@ -114,7 +121,7 @@ class optimizer_node():
         Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, results_folder)
 
         # Send back response
-        return SendPatternsResponse()
+        return response
 
     def convert_service_to_sensors_struct(self, req, correspondences, reference_sensor, reordering_method, outlier_removal_method):
         # For debugging: print service call message
@@ -199,6 +206,14 @@ class optimizer_node():
 
         return sensors, nr_calib_boards
 
+
+def main():
+    rclpy.init(args=sys.argv)
+    optimizer_node = OptimizerNode()
+
+    rclpy.spin(optimizer_node)
+    rclpy.shutdown()
+
+
 if __name__ == "__main__":
-    # Start optimizer ROS node:
-    optimizer_node()
+    main()
