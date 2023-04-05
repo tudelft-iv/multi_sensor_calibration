@@ -11,9 +11,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>cv_bridge</depend>
   <depend>image_geometry</depend>
-  <depend>opencv3</depend>
   <depend>pcl_ros</depend>
-  <depend>roscpp</depend>
+  <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
   <depend>yaml-cpp</depend>
 

@@ -18,44 +18,42 @@
 */
 
 #pragma once
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl_ros/point_cloud.h>
-#include "keypoint_detection.hpp"
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+// #include <pcl_ros/point_cloud.h>
+
+#include "lidar_detector/keypoint_detection.hpp"
 
 
 namespace lidar_detector {
 
 /// Class with a node, subscribing to lidar point cloud and publishing detected pattern
-class LidarDetectorNode {
+class LidarDetectorNode : public rclcpp::Node {
 public:
-
-	// Constructor, taking a node handle
-	LidarDetectorNode(ros::NodeHandle & nh);
+	LidarDetectorNode();
 
 private:
-	/// Ros Node Handle
-	ros::NodeHandle nh_;
-
 	/// Subscriber to velodyne point clouds
-	ros::Subscriber point_cloud_subscriber_;
+	rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_subscriber_;
 
 	/// Publisher of the detected pattern
-	ros::Publisher point_cloud_publisher_;
+	rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_publisher_;
 
 	/// Publisher of the visualization markers of the pattern
-	ros::Publisher sphere_marker_publisher_;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr sphere_marker_publisher_;
 
 	/// Configuration of the detection algorithm
 	Configuration config_;
 
-	void callback(sensor_msgs::PointCloud2ConstPtr const & in);
+	void callback(sensor_msgs::msg::PointCloud2::ConstSharedPtr const & in);
 
 	/// Publisher of the pattern as sphere markers to visualize the result in rviz
 	void publishMarker(
 		pcl::PointCloud<pcl::PointXYZ> const & pattern,
-		std_msgs::Header const & header
+		std_msgs::msg::Header const & header
 	);
 };
 
-} // namespace
+}  // namespace lidar_detector

@@ -17,16 +17,14 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "node_lib.hpp"
+#include "lidar_detector/node_lib.hpp"
 
 int main(int argc, char * * argv) {
-	ros::init(argc, argv, "lidar_detector");
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<lidar_detector::LidarDetectorNode>();
 
-	ros::NodeHandle private_node_handle("~");
+  rclcpp::spin(node);
+  rclcpp::shutdown();
 
-	lidar_detector::LidarDetectorNode lidar_detector_node(private_node_handle);
-
-	ros::spin();
-
-	return 0;
+  return 0;
 }

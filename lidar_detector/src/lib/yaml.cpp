@@ -17,7 +17,7 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "yaml.hpp"
+#include "lidar_detector/yaml.hpp"
 #include <pcl/segmentation/sac_segmentation.h> // to be able to parse model type
 
 namespace YAML {

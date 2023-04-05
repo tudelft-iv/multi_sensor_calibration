@@ -50,7 +50,7 @@ namespace Lidar {
 // Note that the following does not map to the float 'distance', as that is written to internally.
 POINT_CLOUD_REGISTER_POINT_STRUCT(
 	Lidar::PointWithDist, (float, x, x) (float, y, y) (float, z, z)
-		(std::uint16_t, ring, ring));
+		(std::uint16_t, ring, ring))
 
 namespace lidar_detector {
 

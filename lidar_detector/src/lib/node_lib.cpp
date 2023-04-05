@@ -17,21 +17,26 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include <visualization_msgs/MarkerArray.h>
+#include <memory>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/conversions.h>
-#include <ros/package.h>
-#include "yaml.hpp"
-#include "node_lib.hpp"
+
+#include "lidar_detector/yaml.hpp"
+#include "lidar_detector/node_lib.hpp"
+
+using std::placeholders::_1;
 
 namespace lidar_detector {
 
 namespace {
-	visualization_msgs::Marker toMarker(pcl::PointXYZ const & point, std_msgs::Header const & header) {
-		visualization_msgs::Marker marker;
+	visualization_msgs::msg::Marker toMarker(pcl::PointXYZ const & point, std_msgs::msg::Header const & header) {
+		visualization_msgs::msg::Marker marker;
 		marker.header = header;
-		marker.action = visualization_msgs::Marker::ADD;
-		marker.type = visualization_msgs::Marker::SPHERE;
+		marker.action = visualization_msgs::msg::Marker::ADD;
+		marker.type = visualization_msgs::msg::Marker::SPHERE;
 		marker.color.g = 1;
 		marker.color.a = 1.0;
 		marker.scale.x = 0.2;
@@ -43,49 +48,53 @@ namespace {
 		marker.pose.orientation.w = 1.0;
 		return marker;
 	}
-}
+}  // namespace
 
-LidarDetectorNode::LidarDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
-	ROS_INFO("Initialized lidar detector.");
+LidarDetectorNode::LidarDetectorNode() : Node("lidar_detector") {
+	RCLCPP_INFO(get_logger(), "Initialized lidar detector.");
+  std::string package_share = ament_index_cpp::get_package_share_directory("lidar_detector");
 
 	// TODO: Optionally load params to from parameter server instead of yaml file
-	std::string yaml_config;
-	nh_.param<std::string>("path_to_yaml_config", yaml_config, ros::package::getPath("lidar_detector") + "/" + "config/config.yaml");
+  this->declare_parameter("path_to_yaml_config", package_share + "/config/config.yaml");
+  std::string yaml_config = this->get_parameter("path_to_yaml_config").get_parameter_value().get<std::string>();
 	config_ = YAML::LoadFile(yaml_config).as<lidar_detector::Configuration>();
 
-	point_cloud_subscriber_ = nh_.subscribe<sensor_msgs::PointCloud2>("/velodyne_points", 10, &LidarDetectorNode::callback, this);
-	point_cloud_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("lidar_pattern", 100);
-	sphere_marker_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("lidar_pattern_markers", 100);
+	point_cloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    "/velodyne_points", 10, std::bind(&LidarDetectorNode::callback, this, _1)
+	);
+
+	point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lidar_pattern", 100);
+	sphere_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("lidar_pattern_markers", 100);
 }
 
-void LidarDetectorNode::callback(sensor_msgs::PointCloud2ConstPtr const & in) {
-	ROS_INFO_ONCE("Receiving lidar point clouds.");
+void LidarDetectorNode::callback(sensor_msgs::msg::PointCloud2::ConstSharedPtr const & in) {
+	RCLCPP_INFO_ONCE(get_logger(), "Receiving lidar point clouds.");
 	try {
 		pcl::PointCloud<Lidar::PointWithDist> cloud;
 		pcl::fromROSMsg(*in, cloud);
 		pcl::PointCloud<pcl::PointXYZ> pattern = keypointDetection(cloud, config_);
-		sensor_msgs::PointCloud2 out;
+		sensor_msgs::msg::PointCloud2 out;
 		pcl::toROSMsg(pattern, out);
 		out.header = in->header;
-		point_cloud_publisher_.publish(out);
+		point_cloud_publisher_->publish(out);
 		publishMarker(pattern, in->header);
 	} catch (pcl::PCLException & e) {
-		ROS_INFO_ONCE("Ignoring exceptions thrown by pcl in at least one frame.");
+		RCLCPP_INFO_ONCE(get_logger(), "Ignoring exceptions thrown by pcl in at least one frame.");
 	}
-	ROS_INFO_ONCE("Publishing patterns.");
+	RCLCPP_INFO_ONCE(get_logger(), "Publishing patterns.");
 }
 
 void LidarDetectorNode::publishMarker(
 	pcl::PointCloud<pcl::PointXYZ> const & pattern,
-	std_msgs::Header const & header
+	std_msgs::msg::Header const & header
 ) {
-	visualization_msgs::MarkerArray markers;
+	visualization_msgs::msg::MarkerArray markers;
 	for (std::size_t i = 0; i < pattern.size(); ++i) {
 	    auto marker = toMarker(pattern.at(i), header);
 	    marker.id = i;
 		markers.markers.push_back(marker);
 	}
-	sphere_marker_publisher_.publish(markers);
+	sphere_marker_publisher_->publish(markers);
 }
 
-} // namespace
+}  // namespace lidar_detector

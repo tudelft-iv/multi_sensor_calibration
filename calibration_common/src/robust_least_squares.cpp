@@ -16,7 +16,7 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "robust_least_squares.hpp"
+#include "calibration_common/robust_least_squares.hpp"
 
 // Given two sets of 3D points, find the rotation + translation + scale
 // which best maps the first set to the second.
@@ -106,8 +106,8 @@ Eigen::MatrixXi findAllPermutations(std::vector<int> v)
 
     // Convert to Eigen
     Eigen::MatrixXi out_matrix(out.size(), v.size());
-    for (int i = 0; i < out.size(); i++) {
-        for (int j = 0; j < v.size(); j++) {
+    for (size_t i = 0; i < out.size(); i++) {
+        for (size_t j = 0; j < v.size(); j++) {
           out_matrix(i,j) = out[i][j];
         }
     }
@@ -274,8 +274,8 @@ Eigen::MatrixXi findAllPermutations2D(std::vector<int> v)
 
     // Convert to Eigen
     Eigen::MatrixXi out_matrix(out.size(), v.size());
-    for (int i = 0; i < out.size(); i++) {
-        for (int j = 0; j < v.size(); j++) {
+    for (size_t i = 0; i < out.size(); i++) {
+        for (size_t j = 0; j < v.size(); j++) {
           out_matrix(i,j) = out[i][j];
         }
     }
@@ -330,7 +330,7 @@ Eigen::Isometry3d compute_plane_tm(Eigen::Matrix3Xd calibration_board, Eigen::Ma
   Eigen::Matrix3d R;
   Eigen::Vector3d t;
 
-  for (size_t k = 0; k<detections.cols(); k++ ) {
+  for (int k = 0; k<detections.cols(); k++ ) {
     for (size_t i = k+1 ; i < 3; i++) {
       for (size_t j = i+1 ; j < 3; j++) {
           // Select two points and determine vectors

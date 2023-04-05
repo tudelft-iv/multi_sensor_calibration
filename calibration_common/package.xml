@@ -1,13 +1,25 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>common</name>
+  <name>calibration_common</name>
   <version>0.0.0</version>
-  <description>The Common package</description>
+  <description>The Common package for calibration</description>
 
   <maintainer email="j.f.m.domhof@tudelft.nl">jfmdomhof</maintainer>
 
   <license>GPLv3</license>
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>Eigen3</build_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>eigen3_cmake_module</buildtool_depend>
+
+  <buildtool_export_depend>eigen3_cmake_module</buildtool_export_depend>
+  <build_export_depend>eigen</build_export_depend>
+
+  <build_depend>eigen</build_depend>
+
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
