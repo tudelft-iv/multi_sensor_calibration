@@ -1,5 +1,0 @@
-<?xml version="1.0"?>
-<launch>  
-	<!-- Optimizer: estimate of all sensors poses -->
-	<node pkg="optimization" type="server.py" name="optimizer" output="screen"/>
-</launch>  
