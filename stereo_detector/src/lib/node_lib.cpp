@@ -17,34 +17,41 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include "stereo_detector/node_lib.hpp"
+
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include <ros/package.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 
 #include <image_geometry/stereo_camera_model.h>
-#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/msg/marker_array.hpp>
 
-#include "node_lib.hpp"
-#include "yaml.hpp"
-#include "keypoint_detection.hpp"
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include "stereo_detector/yaml.hpp"
+#include "stereo_detector/keypoint_detection.hpp"
+
+using std::placeholders::_1;
+using std::placeholders::_2;
+using std::placeholders::_3;
+using std::placeholders::_4;
 
 namespace stereo_detector {
 
 namespace {
-	cv::Mat toOpencv(const sensor_msgs::Image & in) {
+	cv::Mat toOpencv(const sensor_msgs::msg::Image & in) {
 		cv_bridge::CvImagePtr cv_ptr;
 		cv_ptr = cv_bridge::toCvCopy(in);
 		return cv_ptr->image;
 	}
 
-	visualization_msgs::Marker toMarker(pcl::PointXYZRGB const & point, std_msgs::Header const & header) {
-		visualization_msgs::Marker marker;
+	visualization_msgs::msg::Marker toMarker(pcl::PointXYZRGB const & point, std_msgs::msg::Header const & header) {
+		visualization_msgs::msg::Marker marker;
 		marker.header = header;
-		marker.action = visualization_msgs::Marker::ADD;
-		marker.type = visualization_msgs::Marker::SPHERE;
+		marker.action = visualization_msgs::msg::Marker::ADD;
+		marker.type = visualization_msgs::msg::Marker::SPHERE;
 		marker.color.r = (float) std::rand()/RAND_MAX;
 		marker.color.g = (float) std::rand()/RAND_MAX;
 		marker.color.b = (float) std::rand()/RAND_MAX;
@@ -59,8 +66,8 @@ namespace {
 		return marker;
 	}
 
-	visualization_msgs::MarkerArray toMarkers(pcl::PointCloud<pcl::PointXYZRGB> const & pattern, std_msgs::Header const & header) {
-		visualization_msgs::MarkerArray markers;
+	visualization_msgs::msg::MarkerArray toMarkers(pcl::PointCloud<pcl::PointXYZRGB> const & pattern, std_msgs::msg::Header const & header) {
+		visualization_msgs::msg::MarkerArray markers;
 		for (std::size_t i = 0; i < pattern.size(); ++i) {
 		    auto marker = toMarker(pattern.at(i), header);
 		    marker.id = i;
@@ -71,8 +78,8 @@ namespace {
 
 	pcl::PointCloud<pcl::PointXYZRGB> toCloud(
 		cv::Mat const & image,
-		sensor_msgs::CameraInfoConstPtr const & left_camera_info,
-		sensor_msgs::CameraInfoConstPtr const & right_camera_info,
+		sensor_msgs::msg::CameraInfo::ConstSharedPtr const & left_camera_info,
+		sensor_msgs::msg::CameraInfo::ConstSharedPtr const & right_camera_info,
 		cv::Mat const & disparity
 ) {
 		// Get 3d locations
@@ -105,39 +112,39 @@ namespace {
 
 }
 
-StereoDetectorNode::StereoDetectorNode(ros::NodeHandle & nh)
-:
-	nh_(nh),
-	image_subscriber_(nh_, "/ueye/left/image_rect_color", 1),
-	left_camera_info_subscriber_(nh_, "/ueye/left/camera_info", 1),
-	right_camera_info_subscriber_(nh_, "/ueye/right/camera_info", 1),
-	disparity_subscriber_(nh_, "/ueye/disparity", 1),
+StereoDetectorNode::StereoDetectorNode() : Node("stereo_detector"),
 	sync_(image_subscriber_, left_camera_info_subscriber_, right_camera_info_subscriber_, disparity_subscriber_, 10)
 {
+	RCLCPP_INFO(get_logger(), "Initialized stereo detector.");
+  std::string package_share = ament_index_cpp::get_package_share_directory("stereo_detector");
 
-	ROS_INFO("Initialized stereo detector.");
+	image_subscriber_.subscribe(this, "/ueye/left/image_rect_color");
+	left_camera_info_subscriber_.subscribe(this, "/ueye/left/camera_info");
+	right_camera_info_subscriber_.subscribe(this, "/ueye/right/camera_info");
+	disparity_subscriber_.subscribe(this, "/ueye/disparity");
 
 	// Load configuration from file
-	std::string yaml_file;
-	nh_.param<std::string>("yaml_file", yaml_file, ros::package::getPath("stereo_detector") + "/" + "config/config.yaml");
+  this->declare_parameter("yaml_file", package_share + "/config/config.yaml");
+  std::string yaml_file = this->get_parameter("yaml_file")
+    .get_parameter_value().get<std::string>();
 	config_ = YAML::LoadFile(yaml_file).as<stereo_detector::Configuration>();
 
 	// Setup subscriber and publisher
-	point_cloud_publisher_  = nh_.advertise<sensor_msgs::PointCloud2>("stereo_pattern", 100);
-	sphere_marker_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("stereo_pattern_markers", 100);
+	point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("stereo_pattern", 100);
+	sphere_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("stereo_pattern_markers", 100);
 
 	// Get synchronized image and point cloud
-	sync_.registerCallback(boost::bind(&StereoDetectorNode::callback, this, _1, _2, _3, _4));
+	sync_.registerCallback(std::bind(&StereoDetectorNode::callback, this, _1, _2, _3, _4));
 }
 
 void StereoDetectorNode::callback(
-	sensor_msgs::ImageConstPtr const & image,
-	sensor_msgs::CameraInfoConstPtr const & left_camera_info,
-	sensor_msgs::CameraInfoConstPtr const & right_camera_info,
-	stereo_msgs::DisparityImageConstPtr const & disparity
+	sensor_msgs::msg::Image::ConstSharedPtr const & image,
+	sensor_msgs::msg::CameraInfo::ConstSharedPtr const & left_camera_info,
+	sensor_msgs::msg::CameraInfo::ConstSharedPtr const & right_camera_info,
+	stereo_msgs::msg::DisparityImage::ConstSharedPtr const & disparity
 ) {
 	// convert cloud
-	ROS_INFO_ONCE("Receiving synchronized rectified image, camera info and disparity image.");
+	RCLCPP_INFO_ONCE(get_logger(), "Receiving synchronized rectified image, camera info and disparity image.");
 	try {
 
 		pcl::PointCloud<pcl::PointXYZRGB> cloud = toCloud(toOpencv(*image), left_camera_info, right_camera_info, toOpencv(disparity->image));
@@ -148,13 +155,13 @@ void StereoDetectorNode::callback(
 			cloud,
 			config_
 		);
-		sensor_msgs::PointCloud2 out;
+		sensor_msgs::msg::PointCloud2 out;
 		pcl::toROSMsg(processed, out);
 		out.header = image->header;
-		point_cloud_publisher_.publish(out);
-		sphere_marker_publisher_.publish(toMarkers(processed, image->header));
+		point_cloud_publisher_->publish(out);
+		sphere_marker_publisher_->publish(toMarkers(processed, image->header));
 	} catch (std::exception & e) {
-		ROS_INFO_ONCE("Ignoring exceptions in at least one frame. Reason: %s", e.what());
+		RCLCPP_INFO_ONCE(get_logger(), "Ignoring exceptions in at least one frame. Reason: %s", e.what());
 	}
 }
 

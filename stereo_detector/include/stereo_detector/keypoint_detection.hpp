@@ -22,7 +22,7 @@
 #include <pcl/point_types.h>
 #include <opencv2/opencv.hpp>
 #include <pcl/visualization/pcl_visualizer.h>
-#include "config.hpp"
+#include "stereo_detector/config.hpp"
 
 namespace stereo_detector {
 

@@ -18,60 +18,58 @@
 */
 
 #pragma once
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <stereo_msgs/DisparityImage.h>
+
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <stereo_msgs/msg/disparity_image.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <opencv2/opencv.hpp>
-#include "config.hpp"
+
+#include "stereo_detector/config.hpp"
 
 namespace stereo_detector {
 
 /// Class with a node, subscribing to an organized point cloud and publishes point cloud of calibration pattern
-class StereoDetectorNode {
+class StereoDetectorNode : public rclcpp::Node {
 public:
-
-	/// Constructor taking the node handle as a member variable
-	StereoDetectorNode(ros::NodeHandle & nh);
+	StereoDetectorNode();
 
 private:
-
-	/// Ros Node Handle to communicate with ros server
-	ros::NodeHandle nh_;
-
 	/// Publisher for resulting pattern point cloud
-	ros::Publisher point_cloud_publisher_;
+	rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_publisher_;
 
 	/// Publisher for visualizing the resulting pattern locations in rviz
-	ros::Publisher sphere_marker_publisher_;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr sphere_marker_publisher_;
 
 	/// Image subscriber
-	message_filters::Subscriber<sensor_msgs::Image> image_subscriber_;
+	message_filters::Subscriber<sensor_msgs::msg::Image> image_subscriber_;
 
 	/// Left camera info subscriber
-	message_filters::Subscriber<sensor_msgs::CameraInfo> left_camera_info_subscriber_;
+	message_filters::Subscriber<sensor_msgs::msg::CameraInfo> left_camera_info_subscriber_;
 
 	/// right camera info subscriber
-	message_filters::Subscriber<sensor_msgs::CameraInfo> right_camera_info_subscriber_;
+	message_filters::Subscriber<sensor_msgs::msg::CameraInfo> right_camera_info_subscriber_;
 
 	/// Disparity subscriber
-	message_filters::Subscriber<stereo_msgs::DisparityImage> disparity_subscriber_;
+	message_filters::Subscriber<stereo_msgs::msg::DisparityImage> disparity_subscriber_;
 
 	/// Create message time synchronizer
-	message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::CameraInfo, sensor_msgs::CameraInfo, stereo_msgs::DisparityImage> sync_;
+	message_filters::TimeSynchronizer<sensor_msgs::msg::Image, sensor_msgs::msg::CameraInfo, sensor_msgs::msg::CameraInfo, stereo_msgs::msg::DisparityImage> sync_;
 
 	/// Parameters for processing the data
 	Configuration config_;
 
 	/// Point cloud callback function
 	void callback(
-		sensor_msgs::ImageConstPtr const & image,
-		sensor_msgs::CameraInfoConstPtr const & left_camera_info,
-		sensor_msgs::CameraInfoConstPtr const & right_camera_info,
-		stereo_msgs::DisparityImageConstPtr const & disparity
+		sensor_msgs::msg::Image::ConstSharedPtr const & image,
+		sensor_msgs::msg::CameraInfo::ConstSharedPtr const & left_camera_info,
+		sensor_msgs::msg::CameraInfo::ConstSharedPtr const & right_camera_info,
+		stereo_msgs::msg::DisparityImage::ConstSharedPtr const & disparity
 	);
 
 };

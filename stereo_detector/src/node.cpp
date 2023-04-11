@@ -17,16 +17,14 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "node_lib.hpp"
+#include "stereo_detector/node_lib.hpp"
 
 int main(int argc, char * * argv) {
-	ros::init(argc, argv, "stereo_detector");
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<stereo_detector::StereoDetectorNode>();
 
-	ros::NodeHandle private_node_handle("~");
-
-	stereo_detector::StereoDetectorNode stereo_detector_node(private_node_handle);
-
-	ros::spin();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
 
 	return 0;
 }

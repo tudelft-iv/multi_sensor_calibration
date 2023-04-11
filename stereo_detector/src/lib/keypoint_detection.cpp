@@ -17,7 +17,8 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "keypoint_detection.hpp"
+#include "stereo_detector/keypoint_detection.hpp"
+
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/filters/filter.h>
@@ -27,10 +28,11 @@
 #include <pcl/octree/octree_search.h>
 #include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/filters/passthrough.h>
+
 #include <stdexcept>
 #include <limits>
 
-#include <common/robust_least_squares.hpp>
+#include <calibration_common/robust_least_squares.hpp>
 
 namespace stereo_detector {
 
@@ -45,7 +47,7 @@ pcl::PointCloud<pcl::PointXYZRGB> passThrough(
 	pass.setInputCloud(cloud.makeShared());
 	pass.setFilterFieldName(config.dim);
 	pass.setFilterLimits(config.min, config.max);
-	pass.setFilterLimitsNegative(false);
+	pass.setNegative(false);
 	pass.setKeepOrganized(false);
 	pcl::PointCloud<pcl::PointXYZRGB> out;
 	pass.filter(out);
@@ -70,8 +72,8 @@ pcl::PointCloud<pcl::PointXYZRGB> crop(pcl::PointCloud<pcl::PointXYZRGB> const &
 	out.header = in.header;
 	out.reserve(roi.width * roi.height);
 	out.is_dense = false;
-	for (std::size_t y = roi.y; y < roi.y + roi.height; ++y) {
-		for (std::size_t x = roi.x; x < roi.x + roi.width; ++x) {
+	for (int y = roi.y; y < roi.y + roi.height; ++y) {
+		for (int x = roi.x; x < roi.x + roi.width; ++x) {
 			out.push_back(in.at(x, y));
 		}
 	}
@@ -187,13 +189,13 @@ pcl::PointCloud<pcl::PointXYZRGB> segmentPlane(pcl::ModelCoefficients const & co
 
 
 /// Segment point cloud by replacing points with NaN if corresponding image point is zero
-pcl::PointCloud<pcl::PointXYZRGB> keep(cv::Mat const & image, pcl::PointCloud<pcl::PointXYZRGB> const & cloud, bool visualize) {
+pcl::PointCloud<pcl::PointXYZRGB> keep(cv::Mat const & image, pcl::PointCloud<pcl::PointXYZRGB> const & cloud, bool /*visualize*/) {
 	pcl::PointCloud<pcl::PointXYZRGB> out;
 	if (cloud.size() != image.total()) {
 		throw std::runtime_error(std::string("Image and point cloud are not the same size, ") + std::to_string(image.total()) + " and " + std::to_string(cloud.size()) + " respectively.");
 	}
-	for (std::size_t x = 0; x < image.size().width; ++x) {
-		for (std::size_t y = 0; y < image.size().height; ++y) {
+	for (int x = 0; x < image.size().width; ++x) {
+		for (int y = 0; y < image.size().height; ++y) {
 			if (image.at<uchar>(y, x) > 0) {
 				out.push_back(cloud.at(x, y));
 			}
@@ -299,7 +301,7 @@ pcl::PointCloud<pcl::PointXYZRGB> processCircles(
 	int const max_points_within_radius
 ) {
 	pcl::PointCloud<pcl::PointXYZRGB> out;
-	std::size_t iteration = 0;
+	int iteration = 0;
 	while (out.size() < 4 && iteration < cluster_iterations) { // The calibration board consists of four circles that need to be detected
 		iteration++;
 		pcl::PointXYZRGB point;
@@ -356,7 +358,7 @@ Eigen::Matrix3Xd projectToCalibrationBoardPlane(Eigen::Matrix3Xd in, pcl::ModelC
 	normal_vector << coefficients_plane.values[0], coefficients_plane.values[1], coefficients_plane.values[2];
 
 	Eigen::Matrix3Xd out = Eigen::Matrix3Xd::Zero(in.rows(), in.cols());
-	for (size_t i = 0; i < in.cols(); i++) {
+	for (long int i = 0; i < in.cols(); i++) {
 		// compute disntance
 		double distance = normal_vector.dot(in.col(i)) + coefficients_plane.values[3];
 		// Correct point using normal and distance

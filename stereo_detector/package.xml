@@ -1,24 +1,27 @@
 <?xml version="1.0"?>
 <package format="2">
-	<name>stereo_detector</name>
-	<version>0.0.0</version>
-	<description>The stereo_detector package</description>
+    <name>stereo_detector</name>
+    <version>0.0.0</version>
+    <description>The stereo_detector package</description>
 
-	<maintainer email="r.m.ensing@tudelft.nl">rmensing</maintainer>
+    <maintainer email="r.m.ensing@tudelft.nl">rmensing</maintainer>
 
+    <license>GPLv2</license>
 
-	<license>GPLv2</license>
+    <buildtool_depend>ament_cmake</buildtool_depend>
 
-	<buildtool_depend>catkin</buildtool_depend>
-	<depend>common</depend>
-	<depend>cmake_modules</depend>
-	<depend>image_geometry</depend>
-	<depend>pcl_conversions</depend>
-	<depend>pcl_ros</depend>
-	<depend>roscpp</depend>
-	<depend>sensor_msgs</depend>
-	<depend>stereo_msgs</depend>
-	<depend>yaml-cpp</depend>
-	<depend>visualization_msgs</depend>
+    <buildtool_depend>catkin</buildtool_depend>
+    <depend>calibration_common</depend>
+    <depend>image_geometry</depend>
+    <depend>pcl_conversions</depend>
+    <depend>pcl_ros</depend>
+    <depend>rclcpp</depend>
+    <depend>sensor_msgs</depend>
+    <depend>stereo_msgs</depend>
+    <depend>yaml-cpp</depend>
+    <depend>visualization_msgs</depend>
 
+    <export>
+    <build_type>ament_cmake</build_type>
+    </export>
 </package>

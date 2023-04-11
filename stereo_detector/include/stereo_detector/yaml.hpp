@@ -19,7 +19,7 @@
 
 #pragma once
 #include <yaml-cpp/yaml.h>
-#include "config.hpp"
+#include "stereo_detector/config.hpp"
 
 namespace YAML {
 
