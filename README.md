@@ -2,6 +2,9 @@
 
 This repository contains a calibration tool to calibrate a sensor setup consisting of lidars, radars and cameras. Using this extrinsic sensor calibration tool, the sensor poses can be estimated with respect to each other. This code has bindings with Robot Operating System (ROS). For more information, we would like to refer to the ICRA 2019 conference paper (see [1]).
 
+This code was originally written for ROS 1 but was later migrated to ROS 2.
+This README hasn't been updated yet for new commands and it's possible some things don't work after migration.
+
 ## Getting Started
 
 This tutorial explains how to use the _multi_sensor_calibration_ toolbox. It consists of the following main components:
@@ -12,7 +15,7 @@ This tutorial explains how to use the _multi_sensor_calibration_ toolbox. It con
 
 ### Prerequisites
 
-This code is modified to work in Ubuntu 20.04 LTS in combination with ROS Noetic Ninjemys.
+This code is modified to work in Ubuntu 22.04 LTS with ROS 2 Humble Hawksbill.
 It hasn't been rigorously tested under this release.
 
 The code has been originally developed in Ubuntu 16.04 LTS in combination with ROS Kinetic Kame.
