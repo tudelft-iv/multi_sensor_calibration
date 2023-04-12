@@ -160,7 +160,7 @@ RadarDetectorNode::RadarDetectorNode() : Node("radar_detector") {
   }
 
   radar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/radar_converter/detections", 10, std::bind(&RadarDetectorNode::callback, this, _1));
+    "points", 10, std::bind(&RadarDetectorNode::callback, this, _1));
   pattern_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("radar_pattern", 10);
   marker_publisher_  = this->create_publisher<visualization_msgs::msg::Marker>("radar_marker", 10);
   RCLCPP_INFO(get_logger(), "Initialized radar detector.");

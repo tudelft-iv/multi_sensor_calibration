@@ -62,10 +62,10 @@ MonoDetectorNode::MonoDetectorNode() : Node("mono_detector") {
 
   // Setup subscriber and publisher
   image_subscriber_       = this->create_subscription<Image>(
-    "/ueye/left/image_raw", 1, std::bind(&MonoDetectorNode::imageCallback, this, _1)
+    "image_raw", 1, std::bind(&MonoDetectorNode::imageCallback, this, _1)
   );
   camera_info_subscriber_ = this->create_subscription<CameraInfo>(
-    "/ueye/left/camera_info", 1, std::bind(&MonoDetectorNode::cameraInfoCallback, this, _1)
+    "camera_info", 1, std::bind(&MonoDetectorNode::cameraInfoCallback, this, _1)
   );
   point_cloud_publisher_  = this->create_publisher<PointCloud2>("mono_pattern", 100);
 }

@@ -60,7 +60,7 @@ LidarDetectorNode::LidarDetectorNode() : Node("lidar_detector") {
 	config_ = YAML::LoadFile(yaml_config).as<lidar_detector::Configuration>();
 
 	point_cloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "/velodyne_points", 10, std::bind(&LidarDetectorNode::callback, this, _1)
+    "points", 10, std::bind(&LidarDetectorNode::callback, this, _1)
 	);
 
 	point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lidar_pattern", 100);

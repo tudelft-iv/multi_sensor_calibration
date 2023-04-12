@@ -118,10 +118,10 @@ StereoDetectorNode::StereoDetectorNode() : Node("stereo_detector"),
 	RCLCPP_INFO(get_logger(), "Initialized stereo detector.");
   std::string package_share = ament_index_cpp::get_package_share_directory("stereo_detector");
 
-	image_subscriber_.subscribe(this, "/ueye/left/image_rect_color");
-	left_camera_info_subscriber_.subscribe(this, "/ueye/left/camera_info");
-	right_camera_info_subscriber_.subscribe(this, "/ueye/right/camera_info");
-	disparity_subscriber_.subscribe(this, "/ueye/disparity");
+	image_subscriber_.subscribe(this, "image_color");
+	left_camera_info_subscriber_.subscribe(this, "left_camera_info");
+	right_camera_info_subscriber_.subscribe(this, "right_camera_info");
+	disparity_subscriber_.subscribe(this, "disparity_image");
 
 	// Load configuration from file
   this->declare_parameter("yaml_file", package_share + "/config/config.yaml");
