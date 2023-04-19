@@ -60,12 +60,19 @@ MonoDetectorNode::MonoDetectorNode() : Node("mono_detector") {
   std::string yaml_file = this->get_parameter("yaml_file").get_parameter_value().get<std::string>();
   config_ = YAML::LoadFile(yaml_file).as<mono_detector::Configuration>();
 
+  auto qos = rclcpp::QoS(
+    rclcpp::QoSInitialization(
+      rmw_qos_profile_sensor_data.history,
+      rmw_qos_profile_sensor_data.depth
+    ),
+    rmw_qos_profile_sensor_data
+  );
   // Setup subscriber and publisher
   image_subscriber_       = this->create_subscription<Image>(
-    "image_raw", 1, std::bind(&MonoDetectorNode::imageCallback, this, _1)
+    "image_raw", qos, std::bind(&MonoDetectorNode::imageCallback, this, _1)
   );
   camera_info_subscriber_ = this->create_subscription<CameraInfo>(
-    "camera_info", 1, std::bind(&MonoDetectorNode::cameraInfoCallback, this, _1)
+    "camera_info", qos, std::bind(&MonoDetectorNode::cameraInfoCallback, this, _1)
   );
   point_cloud_publisher_  = this->create_publisher<PointCloud2>("mono_pattern", 100);
 }
@@ -90,14 +97,15 @@ void MonoDetectorNode::imageCallback(Image::ConstSharedPtr const & in) {
     pcl::transformPointCloud(toPcl(object_points_), transformed_pattern, isometry);
 
     // Publish pattern
-    RCLCPP_INFO_ONCE(get_logger(), "Detected a mono detector pattern point cloud at least once.");
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+      "Detected a mono detector pattern point cloud.");
     PointCloud2 out;
     pcl::toROSMsg(transformed_pattern, out);
     out.header = in->header;
     point_cloud_publisher_->publish(out);
   } catch (DetectionException & e) {
-    RCLCPP_WARN_STREAM_THROTTLE(get_logger(), *get_clock(), 10,
-     "Detection failed: '" << e.what() << "'.");
+    RCLCPP_WARN_STREAM_THROTTLE(get_logger(), *get_clock(), 1000,
+      "Detection failed: '" << e.what() << "'.");
   } catch (std::exception & e) {
     RCLCPP_ERROR_STREAM(get_logger(), "Exception thrown: '" << e.what() << "'.");
   }
