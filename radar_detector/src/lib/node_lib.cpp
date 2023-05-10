@@ -159,13 +159,7 @@ RadarDetectorNode::RadarDetectorNode() : Node("radar_detector") {
     throw std::exception();
   }
 
-  auto qos = rclcpp::QoS(
-    rclcpp::QoSInitialization(
-      rmw_qos_profile_sensor_data.history,
-      rmw_qos_profile_sensor_data.depth
-    ),
-    rmw_qos_profile_sensor_data
-  );
+  auto qos = rclcpp::SensorDataQoS();
   radar_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "points", qos, std::bind(&RadarDetectorNode::callback, this, _1));
   pattern_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("radar_pattern", 10);

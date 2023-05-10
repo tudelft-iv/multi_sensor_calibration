@@ -59,8 +59,9 @@ LidarDetectorNode::LidarDetectorNode() : Node("lidar_detector") {
   std::string yaml_config = this->get_parameter("path_to_yaml_config").get_parameter_value().get<std::string>();
 	config_ = YAML::LoadFile(yaml_config).as<lidar_detector::Configuration>();
 
+  auto qos = rclcpp::SensorDataQoS();
 	point_cloud_subscriber_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "points", 10, std::bind(&LidarDetectorNode::callback, this, _1)
+    "points", qos, std::bind(&LidarDetectorNode::callback, this, _1)
 	);
 
 	point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("lidar_pattern", 100);

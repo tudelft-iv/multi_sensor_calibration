@@ -60,13 +60,7 @@ MonoDetectorNode::MonoDetectorNode() : Node("mono_detector") {
   std::string yaml_file = this->get_parameter("yaml_file").get_parameter_value().get<std::string>();
   config_ = YAML::LoadFile(yaml_file).as<mono_detector::Configuration>();
 
-  auto qos = rclcpp::QoS(
-    rclcpp::QoSInitialization(
-      rmw_qos_profile_sensor_data.history,
-      rmw_qos_profile_sensor_data.depth
-    ),
-    rmw_qos_profile_sensor_data
-  );
+  auto qos = rclcpp::SensorDataQoS();
   // Setup subscriber and publisher
   image_subscriber_       = this->create_subscription<Image>(
     "image_raw", qos, std::bind(&MonoDetectorNode::imageCallback, this, _1)
