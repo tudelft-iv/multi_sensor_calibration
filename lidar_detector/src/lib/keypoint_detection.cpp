@@ -168,7 +168,7 @@ std::vector<std::vector<Lidar::PointWithDist*> > toDistanceRing(pcl::PointCloud<
 /// Create edges point cloud
 pcl::PointCloud<Lidar::PointWithDist> createEdgeCloud(pcl::PointCloud<Lidar::PointWithDist> const & cloud, CloudEdgeFilter const & config, float const average_distance_ring) {
 	pcl::PointCloud<Lidar::PointWithDist> edges_cloud;
-	float min_threshold = 3*average_distance_ring; // min gap is 3 times resolution
+	float min_threshold = average_distance_ring; // min gap is the resolution
 	float max_threshold = (2*config.radius + 2*average_distance_ring); // Gap cannot be larger than diameter plus 2 times resolution
 	for (std::size_t i = 0; i < cloud.size(); ++i) {
 		if (cloud.at(i).distance > min_threshold && cloud.at(i).distance < max_threshold ) { // jump should be smaller or equal to diameter + 2* angeluar resuoltion
