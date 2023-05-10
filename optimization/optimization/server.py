@@ -17,10 +17,11 @@
 
 import sys
 import os
+import traceback
 
 import rclpy
 import numpy as np
-# import ros_numpy
+import sensor_msgs_py.point_cloud2 as pc2
 from rclpy.node import Node
 
 from calibration_interfaces.srv import SendPatterns
@@ -29,15 +30,6 @@ from optimization.optimization.calibration_board import *
 from optimization.optimization.helper_functions import *
 from optimization.optimization.config import *
 from optimization.optimization.optimize import joint_optimization,remove_non_visible_detections_in_reference_sensor
-
-
-def print_service_call_message(msg):
-    for i_sensor in range(len(msg.accumulated_patterns)):
-        print('Sensor type: ' + msg.accumulated_patterns[i_sensor].sensor.data)
-        for i in range(len(msg.accumulated_patterns[i_sensor].patterns)):
-            pcl_cb = msg.accumulated_patterns[i_sensor].patterns[i]
-            print('Calibration board location: ' + str(i))
-            # print(ros_numpy.point_cloud2.pointcloud2_to_array(pcl_cb).shape)
 
 
 def convert_tuple_to_list(pattern, nr_detections):
@@ -53,10 +45,9 @@ def get_pcl_sensor(msg, nr_detections):
     data = np.zeros((3, len(msg.patterns) * nr_detections))
     for i in range(len(msg.patterns)):
         # Convert ROS pointlcoud2 message to numpy array
-        # pattern = ros_numpy.point_cloud2.pointcloud2_to_array(msg.patterns[i])
-        # # Add into data numpy array - with conversion from numpy tuples to numpy list
-        # data[:, i * nr_detections:(i + 1) * nr_detections] = convert_tuple_to_list(pattern, nr_detections)
-        pass
+        pattern = pc2.read_points_numpy(msg.patterns[i])
+        # Add into data numpy array - with conversion from numpy tuples to numpy list
+        data[:, i * nr_detections:(i + 1) * nr_detections] = convert_tuple_to_list(pattern, nr_detections)
 
     return data
 
@@ -84,56 +75,57 @@ class OptimizerNode(Node):
 
         # Service call receiver
         s = self.create_service(SendPatterns, '/optimizer/optimize', self.optimize)
+        self.get_logger().info('Optimizer ready!')
 
     def optimize(self, req, response):
-        # Notifiy that service call is received:
-        print('Received service call!')
+        try:
+            # Notifiy that service call is received:
+            self.get_logger().info(f'Received service call!')
 
-        # Parameters for Joint Optimization:
-        calibration_mode = self.get_parameter("calibration_mode").get_parameter_value().integer_value
-        # Possible calibration modes:
-            # 0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices
-            # 1: Pose and Structure Estimation (PSE) with known observation covariance matrices
-            # 2: Minimally Connected Pose Estimation (MCPE)
-            # 3: Fully Connected Pose Estimation (FCPE)
-        correspondences = self.get_parameter("correspondences").get_parameter_value().string_value   # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
-        reference_sensor = self.get_parameter("reference_sensor").get_parameter_value().string_value    # reference sensor
-        export_detections_to_files = self.get_parameter("export_detections_to_files").get_parameter_value().bool_value
-        visualise = self.get_parameter("visualise").get_parameter_value().bool_value  # visualise result using matplotlib 3D visualisation
-        results_folder = self.get_parameter("results_folder").get_parameter_value().string_value
-        detections_folder = self.get_parameter("detections_folder").get_parameter_value().string_value
-        reordering_method = self.get_parameter("reordering").get_parameter_value().string_value
-        outlier_removal_method = self.get_parameter("outlier_removal").get_parameter_value().string_value
+            # Parameters for Joint Optimization:
+            calibration_mode = self.get_parameter("calibration_mode").get_parameter_value().integer_value
+            # Possible calibration modes:
+                # 0: Pose and Structure Estimation (PSE) with unknown observation covariance matrices
+                # 1: Pose and Structure Estimation (PSE) with known observation covariance matrices
+                # 2: Minimally Connected Pose Estimation (MCPE)
+                # 3: Fully Connected Pose Estimation (FCPE)
+            correspondences = self.get_parameter("correspondences").get_parameter_value().string_value   # For lidar and stereo, 4 circles are detected. If 'known' the correpondences are known between lidar and stereo, else not.
+            reference_sensor = self.get_parameter("reference_sensor").get_parameter_value().string_value    # reference sensor
+            export_detections_to_files = self.get_parameter("export_detections_to_files").get_parameter_value().bool_value
+            visualise = self.get_parameter("visualise").get_parameter_value().bool_value  # visualise result using matplotlib 3D visualisation
+            results_folder = self.get_parameter("results_folder").get_parameter_value().string_value
+            detections_folder = self.get_parameter("detections_folder").get_parameter_value().string_value
+            reordering_method = self.get_parameter("reordering").get_parameter_value().string_value
+            outlier_removal_method = self.get_parameter("outlier_removal").get_parameter_value().string_value
 
-        os.makedirs(results_folder, exist_ok=True)
-        os.makedirs(detections_folder, exist_ok=True)
+            os.makedirs(results_folder, exist_ok=True)
+            os.makedirs(detections_folder, exist_ok=True)
 
-        # Convert ROS service call to sensors struct
-        sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
+            # Convert ROS service call to sensors struct
+            sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
 
-        if export_detections_to_files:
-            # Save as CSV
-            export_sensor_data_to_csv(sensors, detections_folder)
-            # Save as YAML
-            export_sensor_data_to_yaml(sensors, detections_folder)
+            if export_detections_to_files:
+                # Save as CSV
+                export_sensor_data_to_csv(sensors, detections_folder)
+                # Save as YAML
+                export_sensor_data_to_yaml(sensors, detections_folder)
 
-        # Joint Optimization
-        Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, results_folder)
+            # Joint Optimization
+            Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, results_folder)
 
-        # Send back response
-        return response
+            # Send back response
+            return response
+        except Exception:
+            self.get_logger().warn(f'Exception while running the optimization: {traceback.format_exc()}')
+            return response
 
     def convert_service_to_sensors_struct(self, req, correspondences, reference_sensor, reordering_method, outlier_removal_method):
-        # For debugging: print service call message
-        if False:
-            print_service_call_message(req)
-
         # Retrieve numpy arrays
         sensors = []
         for i_sensor in range(len(req.accumulated_patterns)):
             # Get sensor type from ros service all
             sensor_topic_type = req.accumulated_patterns[i_sensor].sensor.data # This parameter is used to determine if the sensor is a lidar, camera or radar
-            print('Sensor topic name: ' + sensor_topic_type)
+            self.get_logger().info('Sensor topic name: ' + sensor_topic_type)
             # Based on sensor_topic_type we known which sensor it is
             # This means that for instance a lidar should contain lidar in the topic name
             if 'stereo' in sensor_topic_type:
@@ -188,9 +180,9 @@ class OptimizerNode(Node):
         try:
             sensors = reorder_detections_sensors(sensors, reordering_method, reference_sensor)
         except ValueError as msg_value_error:
-            print('----------------------------------------------------------')
-            print(msg_value_error)
-            print('----------------------------------------------------------')
+            self.get_logger().info('----------------------------------------------------------')
+            self.get_logger().info(msg_value_error)
+            self.get_logger().info('----------------------------------------------------------')
             # ValueError 1: reference sensor is not defined
             # ValueError 2: reference sensor contains non visible detection therefore reordering cannot be done for those calibration board locations
 

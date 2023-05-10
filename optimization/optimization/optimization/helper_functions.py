@@ -17,7 +17,7 @@
 import numpy as np
 import math
 import rmsd
-from optimization.icp import *
+from optimization.icp.icp import icp
 from optimization.optimization.calibration_board import *
 from scipy.optimize import linear_sum_assignment
 import warnings

@@ -12,9 +12,10 @@
     <exec_depend>rclpy</exec_depend>
     <exec_depend>std_msgs</exec_depend>
     <exec_depend>calibration_interfaces</exec_depend>
-    <!-- TODO(mwojcik): add both to rosdep mapping https://github.com/ros/rosdistro/blob/master/rosdep/python.yaml -->
-    <!-- <exec_depend>rmsd</exec_depend>
-    <exec_depend>tikzplotlib</exec_depend> -->
+
+    <exec_depend>python3-rmsd-pip</exec_depend>
+    <exec_depend>python3-tikzplotlib-pip</exec_depend>
+    <exec_depend>python3-sklearn</exec_depend>
 
     <export>
         <build_type>ament_python</build_type>
