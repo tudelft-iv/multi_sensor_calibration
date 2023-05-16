@@ -18,6 +18,8 @@
 
 #include "mono_detector/util.hpp"
 
+#include <opencv2/aruco.hpp>
+
 namespace mono_detector {
 
 std::string toYaml(pcl::PointCloud<pcl::PointXYZ> const & cloud) {
@@ -75,13 +77,6 @@ std::vector<cv::Point2f> toCvPoint2fVector(std::vector<cv::Vec3f> const & circle
   return result;
 }
 
-cv::Mat gaussianBlur(cv::Mat const & image, GaussConfig const & config) {
-  cv::Mat result;
-  cv::GaussianBlur(image, result, cv::Size(config.ksize_x, config.ksize_y),
-                   config.sigma_x, config.sigma_y);
-  return result;
-}
-
 cv::Point2f calculateCenter(std::vector<cv::Point2f> const & in) {
   cv::Point2f out(0, 0);
   for (const auto & point : in) {
@@ -106,43 +101,33 @@ cv::Point3f calculateCenter(std::vector<cv::Point3f> const & in) {
   return out;
 }
 
-void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles,
-               cv::Rect const & roi) {
-  cv::Mat draw = image.clone();
-  if (draw.channels() == 1) {
-    cv::cvtColor(draw, draw, cv::COLOR_GRAY2BGR);
+void visualize(cv::Mat const & image, std::vector<std::vector<cv::Point2f>> const & corners,
+               std::vector<int> const & markerIds, cv::Rect const & roi,
+               cv::Vec3d const & detection, CameraModel const & intrinsics) {
+  cv::Mat outputImage = image.clone();
+  cv::aruco::drawDetectedMarkers(outputImage, corners, markerIds);
+
+  std::vector<cv::Point2f> projected;
+  std::vector<cv::Point3f> objectPoints{cv::Point3f(detection[0], detection[1], detection[2])};
+  std::vector<double> empty(3, 0.);
+
+  if (intrinsics.distortion_model == CameraModel::DistortionModel::PINHOLE) {
+    cv::projectPoints(objectPoints, projected, empty, empty,
+      intrinsics.camera_matrix, intrinsics.distortion_parameters);
+  } else {
+    cv::fisheye::projectPoints(objectPoints, projected, empty, empty,
+      intrinsics.camera_matrix, intrinsics.distortion_parameters);
   }
-  for (auto const & c : circles) {
-    cv::circle(draw, cv::Point(c[0], c[1]), c[2], cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-    cv::circle(draw, cv::Point(c[0], c[1]), 2, cv::Scalar(0, 255, 0), 3, cv::LINE_AA);
-  }
+
+  cv::circle(outputImage, projected[0], 7, cv::Scalar(150, 0, 200), -1);
+
   if (roi != cv::Rect()) {
-    cv::rectangle(draw, roi.tl(), roi.br(), cv::Scalar(255, 0, 0), 3);
+    cv::rectangle(outputImage, roi.tl(), roi.br(), cv::Scalar(255, 0, 0), 3);
   }
   std::string window_name = "result";
   cv::namedWindow(window_name, cv::WINDOW_NORMAL);
-  cv::imshow(window_name, draw);
+  cv::imshow(window_name, outputImage);
   cv::waitKey(100);
-}
-
-std::vector<double> compute_median_circle(std::vector<cv::Vec3f> const & circles) {
-  // Output vector
-  std::vector<double> median_vector;
-
-  // Loop over the 3D vector of circle: x,y,radius:
-  for (int dim = 0; dim < 3; dim++) {
-    std::vector<double> v;
-    for (const auto & circle : circles) {
-      v.push_back(circle[dim]);
-    }
-    // Find median
-    std::nth_element(v.begin(), v.begin() + v.size()/2, v.end());
-
-    // Push back current median
-    median_vector.push_back(v[v.size()/2]);
-  }
-
-  return median_vector;
 }
 
 }  // namespace mono_detector

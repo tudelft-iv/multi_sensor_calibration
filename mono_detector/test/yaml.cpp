@@ -23,7 +23,6 @@
 TEST(Yaml, parseConfig) {
   // Setup some particular configuration
   mono_detector::Configuration expected;
-  expected.pre_blur.ksize_x = 5;
   expected.roi = cv::Rect(5, 4, 7, 9);
 
   // Convert the configuration to yaml
@@ -33,7 +32,6 @@ TEST(Yaml, parseConfig) {
   mono_detector::Configuration result = node.as<mono_detector::Configuration>();
 
   // Compare expectation with result
-  EXPECT_TRUE(expected.pre_blur.ksize_x == result.pre_blur.ksize_x);
   EXPECT_TRUE(expected.roi.x            == result.roi.x);
   EXPECT_TRUE(expected.roi.y            == result.roi.y);
   EXPECT_TRUE(expected.roi.width        == result.roi.width);

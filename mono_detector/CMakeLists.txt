@@ -14,6 +14,7 @@ find_package(cv_bridge REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(pcl_ros REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(OpenCV REQUIRED)
 
 find_package(yaml-cpp REQUIRED)
 
@@ -23,12 +24,14 @@ set(deps
   image_geometry
   pcl_ros
   sensor_msgs
-  yaml-cpp)
+  yaml-cpp
+  OpenCV
+)
 
 include_directories(include)
 
 # Library without any ros dependencies
-add_library(${PROJECT_NAME}_lib SHARED src/lib/detector.cpp src/lib/pnp.cpp src/lib/yaml.cpp src/lib/util.cpp)
+add_library(${PROJECT_NAME}_lib SHARED src/lib/detector.cpp src/lib/yaml.cpp src/lib/util.cpp)
 ament_target_dependencies(${PROJECT_NAME}_lib ${deps})
 
 # Library containing a ros wrapper around the detection library

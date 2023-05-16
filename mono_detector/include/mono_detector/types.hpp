@@ -57,34 +57,8 @@ public:
     explicit DetectionException(const std::string& message) : std::runtime_error(message) {}
 };
 
-struct GaussConfig {
-  bool apply;
-  int ksize_x;
-  int ksize_y;
-  float sigma_x;
-  float sigma_y;
-};
-
-struct CannyConfig {
-  bool apply;
-  int min_threshold;
-  int max_threshold;
-};
-
-struct HoughConfig {
-  double dp;
-  double min_dist;
-  double param1;
-  double param2;
-  int min_radius;
-  int max_radius;
-};
-
 struct Configuration {
-  GaussConfig pre_blur;
-  CannyConfig edge_detection;
-  GaussConfig post_blur;
-  HoughConfig hough_config;
+  float marker_size;
   cv::Rect roi;
   bool visualize;
 };

@@ -34,77 +34,16 @@ bool convert<cv::Point3f>::decode(const Node & node, cv::Point3f & config) {
   return true;
 }
 
-Node convert<mono_detector::CannyConfig>::encode(const mono_detector::CannyConfig & config) {
-  Node node;
-  node["apply"]         = config.apply ? "true" : "false";
-  node["min_threshold"] = std::to_string(config.min_threshold);
-  node["max_threshold"] = std::to_string(config.max_threshold);
-  return node;
-}
-bool convert<mono_detector::CannyConfig>::decode(const Node & node,
-                                                 mono_detector::CannyConfig & config) {
-  config.apply          = node["apply"].as<bool>();
-  config.min_threshold  = node["min_threshold"].as<int>();
-  config.max_threshold  = node["max_threshold"].as<int>();
-  return true;
-}
-
-Node convert<mono_detector::GaussConfig>::encode(const mono_detector::GaussConfig & config) {
-  Node node;
-  node["apply"]         = config.apply ? "true" : "false";
-  node["ksize_x"]       = std::to_string(config.ksize_x);
-  node["ksize_y"]       = std::to_string(config.ksize_y);
-  node["sigma_x"]       = std::to_string(config.sigma_x);
-  node["sigma_y"]       = std::to_string(config.sigma_y);
-  return node;
-}
-bool convert<mono_detector::GaussConfig>::decode(const Node & node,
-                                                 mono_detector::GaussConfig & config) {
-  config.apply          = node["apply"].as<bool>();
-  config.ksize_x        = node["ksize_x"].as<int>();
-  config.ksize_y        = node["ksize_y"].as<int>();
-  config.sigma_x        = node["sigma_x"].as<float>();
-  config.sigma_y        = node["sigma_y"].as<float>();
-  return true;
-}
-
-Node convert<mono_detector::HoughConfig>::encode(const mono_detector::HoughConfig & config) {
-  Node node;
-  node["dp"]            = std::to_string(config.dp);
-  node["min_dist"]      = std::to_string(config.min_dist);
-  node["param1"]        = std::to_string(config.param1);
-  node["param2"]        = std::to_string(config.param2);
-  node["min_radius"]    = std::to_string(config.min_radius);
-  node["max_radius"]    = std::to_string(config.max_radius);
-  return node;
-}
-bool convert<mono_detector::HoughConfig>::decode(const Node & node,
-                                                 mono_detector::HoughConfig & config) {
-  config.dp             = node["dp"].as<double>();
-  config.min_dist       = node["min_dist"].as<double>();
-  config.param1         = node["param1"].as<double>();
-  config.param2         = node["param2"].as<double>();
-  config.min_radius     = node["min_radius"].as<int>();
-  config.max_radius     = node["max_radius"].as<int>();
-  return true;
-}
-
 Node convert<mono_detector::Configuration>::encode(const mono_detector::Configuration & config) {
   Node node;
-  node["pre_gauss"]     = Node(config.pre_blur);
-  node["canny"]         = Node(config.edge_detection);
-  node["post_gauss"]    = Node(config.post_blur);
-  node["hough"]         = Node(config.hough_config);
+  node["marker_size"]   = config.marker_size;
   node["roi"]           = Node(config.roi);
   node["visualize"]     = config.visualize ? "true" : "false";
   return node;
 }
 bool convert<mono_detector::Configuration>::decode(const Node & node,
                                                    mono_detector::Configuration & config) {
-  config.pre_blur       = node["pre_gauss"].as<mono_detector::GaussConfig>();
-  config.edge_detection = node["canny"].as<mono_detector::CannyConfig>();
-  config.post_blur      = node["post_gauss"].as<mono_detector::GaussConfig>();
-  config.hough_config   = node["hough"].as<mono_detector::HoughConfig>();
+  config.marker_size    = node["marker_size"].as<float>();
   config.roi            = node["roi"].as<cv::Rect>();
   config.visualize      = node["visualize"].as<bool>();
   return true;

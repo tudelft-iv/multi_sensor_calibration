@@ -27,7 +27,6 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include "mono_detector/detector.hpp"
-#include "mono_detector/pnp.hpp"
 #include "mono_detector/util.hpp"
 #include "mono_detector/yaml.hpp"
 
@@ -80,25 +79,21 @@ void MonoDetectorNode::imageCallback(Image::ConstSharedPtr const & in) {
   try {
     // Call to do image processing
     std::vector<cv::Point2f> image_points;
-    std::vector<float> radi;
-    detectMono(toOpencv(in), config_, image_points, radi);
-
-    // Call to solve pnp
-    Eigen::Isometry3f isometry = solvePose(image_points, object_points_, intrinsics_);
+    Eigen::Isometry3f isometry = detectMono(toOpencv(in), config_, intrinsics_);
 
     // Transform pattern
     pcl::PointCloud<pcl::PointXYZ> transformed_pattern;
     pcl::transformPointCloud(toPcl(object_points_), transformed_pattern, isometry);
 
     // Publish pattern
-    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 1000,
+    RCLCPP_DEBUG_THROTTLE(get_logger(), *get_clock(), 1000,
       "Detected a mono detector pattern point cloud.");
     PointCloud2 out;
     pcl::toROSMsg(transformed_pattern, out);
     out.header = in->header;
     point_cloud_publisher_->publish(out);
   } catch (DetectionException & e) {
-    RCLCPP_WARN_STREAM_THROTTLE(get_logger(), *get_clock(), 1000,
+    RCLCPP_DEBUG_STREAM_THROTTLE(get_logger(), *get_clock(), 1000,
       "Detection failed: '" << e.what() << "'.");
   } catch (std::exception & e) {
     RCLCPP_ERROR_STREAM(get_logger(), "Exception thrown: '" << e.what() << "'.");

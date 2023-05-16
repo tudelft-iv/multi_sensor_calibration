@@ -53,9 +53,6 @@ cv::Mat toOpencv(const sensor_msgs::msg::Image::ConstSharedPtr & in);
 // Conversion function
 std::vector<cv::Point2f> toCvPoint2fVector(std::vector<cv::Vec3f> const & circles);
 
-// Wrapper to apply gaussian blur
-cv::Mat gaussianBlur(cv::Mat const & image, GaussConfig const & config);
-
 // Calculate the center of a vector of points
 cv::Point2f calculateCenter(std::vector<cv::Point2f> const & in);
 
@@ -63,9 +60,8 @@ cv::Point2f calculateCenter(std::vector<cv::Point2f> const & in);
 cv::Point3f calculateCenter(std::vector<cv::Point3f> const & in);
 
 // visualize (blocking window until key press)
-void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv::Rect const & roi);
-
-// Compute median circle for certain dimension
-std::vector<double> compute_median_circle(std::vector<cv::Vec3f> const & circles);
+void visualize(cv::Mat const & image, std::vector<std::vector<cv::Point2f>> const & corners,
+               std::vector<int> const & markerIds, cv::Rect const & roi,
+               cv::Vec3d const & detection, CameraModel const & intrinsics);
 
 }  // namespace mono_detector
