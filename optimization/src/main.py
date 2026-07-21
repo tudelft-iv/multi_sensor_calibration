@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     if args.unknown_correspondences:
         # In this case the correspondences between the keypoints of lidar and camera are not known.
-        # The optimizer will find the right correspondences for you during optimzation.
+        # The optimizer will find the right correspondences for you during optimization.
         # This takes more time, so you would like to avoid it.
         # It is recommended to set --reorder-detections argument instead.
         correpondences = 'unknown'
