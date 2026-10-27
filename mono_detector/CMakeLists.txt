@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(mono_detector)
 
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 find_package(catkin REQUIRED COMPONENTS
 	cmake_modules
@@ -47,6 +47,14 @@ target_link_libraries(${PROJECT_NAME}_ros ${PROJECT_NAME} ${catkin_LIBRARIES} ${
 add_executable(${PROJECT_NAME}_node src/node.cpp)
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_ros ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
+# Añadir el nuevo ejecutable
+add_executable(thermal_colorizer_node src/thermal_colorizer_node.cpp)
+
+# Enlazar las librerías necesarias
+target_link_libraries(thermal_colorizer_node
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
 
 # Add tests
 catkin_add_gtest(${PROJECT_NAME}_yaml_test test/yaml.cpp)

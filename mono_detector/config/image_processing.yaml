@@ -22,13 +22,13 @@ hough:                      # Detect circles using hough transform
     min_dist: 10
     param1: 100
     param2: 80
-    min_radius: 20
-    max_radius: 38
+    min_radius: 10
+    max_radius: 50
 
 roi:                        # Region of interest to find circles
     x: 0
-    y: 850
-    width: 1900
-    height: 400
+    y: 0
+    width: 640              #800
+    height: 512             #800
 
-visualize: false
+visualize: true

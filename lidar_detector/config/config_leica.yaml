@@ -1,4 +1,4 @@
-visualize: false
+visualize: true
 lidar_parameters:
     number_layers: 20229                          # How many number of layers (aka nr of rings) does the lidar have?
 pass_through_filter:                             # Reduced the pointclouds to area that can contain the calibration board

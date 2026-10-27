@@ -27,7 +27,7 @@
 namespace stereo_detector {
 
 /// Main function that does all stereo processing (circlr, plane fitting, transforming point cloud
-pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
+std::pair<pcl::PointCloud<pcl::PointXYZRGB>, pcl::PointCloud<pcl::PointXYZRGB>> keypointDetection(
 	cv::Mat const & image,
 	pcl::PointCloud<pcl::PointXYZRGB> const & cloud,
 	Configuration const & config

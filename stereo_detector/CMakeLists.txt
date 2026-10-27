@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(stereo_detector)
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_definitions(-std=c++14)
+
+set (CMAKE_CXX_STANDARD 14)
 
 find_package(catkin REQUIRED
 	cmake_modules
 	cv_bridge
 	image_geometry
+	image_transport
 	pcl_conversions
 	pcl_ros
 	roscpp
@@ -61,3 +66,22 @@ target_link_libraries(${PROJECT_NAME}_ros ${PROJECT_NAME} ${YAML_CPP_LIBRARIES} 
 # Ros node, depending on the ros detection library
 add_executable(${PROJECT_NAME}_node src/node.cpp)
 target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME}_ros ${YAML_CPP_LIBRARIES} ${PROJECT_NAME}_yaml ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
+
+add_executable(disparity_normalizer_node src/disparity_normalizer_node.cpp)
+target_link_libraries(disparity_normalizer_node ${catkin_LIBRARIES})
+
+add_executable(circle_stereo_detector_node
+  src/circle_stereo_detector.cpp
+  src/circle_stereo_detector_node.cpp
+)
+
+target_link_libraries(circle_stereo_detector_node
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+)
+
+add_executable(stereo_to_pointcloud src/stereo_to_pointcloud.cpp)
+target_link_libraries(stereo_to_pointcloud
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+)

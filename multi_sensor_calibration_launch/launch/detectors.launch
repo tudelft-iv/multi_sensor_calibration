@@ -4,11 +4,14 @@
 	<node pkg="lidar_detector" type="lidar_detector_node" name="lidar_detector"/>
 
 	<!-- Stereo camera: Start detector for ueye stereo camera -->
-	<node pkg="stereo_detector" type="stereo_detector_node" name="stereo_detector"/>
+	<node pkg="stereo_detector_alterno" type="stereo_detector_alterno_node" name="stereo_detector_alterno"/>
+
+	<!-- mono camera: Start detector for mono camera -->
+	<node pkg="mono_detector" type="mono_detector_node" name="mono_detector"/>
 
 	<!-- Radar: Start detector for radar -->
 	<!-- _selection_basis: either rcs or range -->
 	<!-- _selection_criterion: either min or max -->
-	<node pkg="radar_detector" type="radar_detector_node" name="radar_detector" 
-	      args="_minimum_RCS:=-10 _maximum_RCS:=15 _max_range_object:=5 _selection_basis:=range _selection_criterion:=min"/>
+	<!--<node pkg="radar_detector" type="radar_detector_node" name="radar_detector" 
+	      args="_minimum_RCS:=-10 _maximum_RCS:=15 _max_range_object:=5 _selection_basis:=range _selection_criterion:=min"/>-->
 </launch>

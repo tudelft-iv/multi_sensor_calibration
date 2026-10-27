@@ -1,0 +1,1645 @@
+diff --git a/accumulator/CMakeLists.txt b/accumulator/CMakeLists.txt
+index 05ae2bf..a502e3e 100644
+--- a/accumulator/CMakeLists.txt
++++ b/accumulator/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ cmake_minimum_required(VERSION 2.8.3)
+ project(accumulator)
+ 
+-add_compile_options(-std=c++14)
++add_compile_options(-std=c++11)
+ 
+ find_package(catkin REQUIRED COMPONENTS
+ 	message_generation
+diff --git a/accumulator/include/accumulator/accumulator.hpp b/accumulator/include/accumulator/accumulator.hpp
+index 1645421..59a45b8 100644
+--- a/accumulator/include/accumulator/accumulator.hpp
++++ b/accumulator/include/accumulator/accumulator.hpp
+@@ -295,7 +295,7 @@ public:
+ 		// NOTE: topic name is important because the optimizer needs to know which sensor it is
+ 		// For instance, the topic name requirement is that a lidar sensor should contain 'lidar' in the name.
+ 		// Furthermore, stereo camera should contain 'stereo', monocular camera should contain 'mono' and radar sensor should contain 'radar')
+-		nh_.param<std::vector<std::string> >("sensor_topics", sensor_pattern_topics, {"/stereo_detector/stereo_pattern", "/lidar_detector/lidar_pattern", "/radar_detector/radar_pattern", "/mono_detector/mono_pattern_flir"});
++		nh_.param<std::vector<std::string> >("sensor_topics", sensor_pattern_topics, {"/stereo_detector/stereo_pattern", "/lidar_detector/lidar_pattern", "/radar_detector/radar_pattern"});
+ 
+ 		// Load config for euclidean clustering of accumulated detections
+ 		nh_.param<float>("cluster_tolerance", euclidean_config_.cluster_tolerance, 0.03);
+@@ -325,7 +325,6 @@ public:
+ 
+ 		// Setup visualization markers publisher
+ 		markers_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("accumulated_patterns", 10);
+-		ROS_INFO_STREAM("aqui");
+ 	}
+ 
+ private:
+@@ -376,7 +375,6 @@ private:
+ 	/// Check if the pattern is from a radar
+ 	bool isRadar(std::vector<pcl::PointCloud<pcl::PointXYZ> > const & patterns) {
+ 		if (patterns.front().size() == nr_output_clusters_radar_) { // Only checks the first item, but actually all elements should have only a single pattern point for radar
+-		ROS_INFO_STREAM("here");
+ 			return true;
+ 		}
+ 		return false;
+@@ -563,7 +561,6 @@ private:
+ 			}
+ 		}
+ 		markers_publisher_.publish(marker_array);
+-		ROS_INFO_STREAM("here23");
+ 	}
+ };
+ 
+diff --git a/ejemplo-dev.txt b/ejemplo-dev.txt
+deleted file mode 100644
+index 95b73b4..0000000
+--- a/ejemplo-dev.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-ejemplo de branch dev
+diff --git a/lidar_detector/config/config.yaml b/lidar_detector/config/config.yaml
+index 90cdba7..252cda0 100644
+--- a/lidar_detector/config/config.yaml
++++ b/lidar_detector/config/config.yaml
+@@ -2,21 +2,21 @@ visualize: false
+ lidar_parameters:
+     number_layers: 64                          # How many number of layers (aka nr of rings) does the lidar have?
+ pass_through_filter:                             # Reduced the pointclouds to area that can contain the calibration board
+-    -  {dim: "y", min: -1.8, max: 1.9}            # Passthrough filter in y direction: min and max values
+-    -  {dim: "x", min: -2.4, max: 3.0}           # Passthrough filter in x direction: min and max values
++    -  {dim: "y", min: 3.0, max: 6.5}            # Passthrough filter in y direction: min and max values
++    -  {dim: "x", min: -2.0, max: 2.5}           # Passthrough filter in x direction: min and max values
+ ground_floor_filter:                             # Parameters to remove ground floor from pointcloud
+-    distance_threshold: 0.3
++    distance_threshold: 0.1
+     axis: {x: 0.0, y: 0.0, z: 1.0}
+-    eps_angle: 0.6
++    eps_angle: 0.55
+     max_iterations: 1000
+     set_negative: true
+     model_type: "sacmodel_perpendicular_plane"
+     return_projected: false
+ calibration_board_filter:                        # Parameters to extract planar surface of calibration board
+-    distance_threshold: 0.2
++    distance_threshold: 0.15
+     axis: {x: 0.0, y: 0.0, z: 1.0}
+-    eps_angle: 0.65
+-    max_iterations: 500
++    eps_angle: 0.55
++    max_iterations: 250
+     set_negative: false
+     model_type: "sacmodel_parallel_plane"
+     return_projected: true
+diff --git a/lidar_detector/config/keypoint_detection.cpp b/lidar_detector/config/keypoint_detection.cpp
+deleted file mode 100644
+index 41c3c08..0000000
+--- a/lidar_detector/config/keypoint_detection.cpp
++++ /dev/null
+@@ -1,420 +0,0 @@
+-/*
+-  multi_sensor_calibration
+-  Copyright (C) 2019  Intelligent Vehicles Delft University of Technology
+-
+-  This program is free software; you can redistribute it and/or modify
+-  it under the terms of the GNU General Public License as published by
+-  the Free Software Foundation; either version 2 of the License, or
+-  (at your option) any later version.
+-
+-  This program is distributed in the hope that it will be useful,
+-  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-  GNU General Public License for more details.
+-
+-  You should have received a copy of the GNU General Public License along
+-  with this program; if not, write to the Free Software Foundation, Inc.,
+-  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-*/
+-
+-#include "keypoint_detection.hpp"
+-#include "visualize.hpp"
+-
+-#include <pcl/octree/octree_search.h>
+-#include <common/robust_least_squares.hpp>
+-
+-namespace lidar_detector {
+-namespace {
+-
+-/// Passthrough filter of point cloud
+-pcl::PointCloud<Lidar::PointWithDist> passThrough(
+-	pcl::PointCloud<Lidar::PointWithDist> const & cloud,
+-	PassThroughFilter const & config
+-) {
+-	pcl::PassThrough<Lidar::PointWithDist> pass;
+-	pass.setInputCloud(cloud.makeShared());
+-	pass.setFilterFieldName(config.dim);
+-	pass.setFilterLimits(config.min, config.max);
+-	pass.setFilterLimitsNegative(false);
+-	pass.setKeepOrganized(false);
+-	pcl::PointCloud<Lidar::PointWithDist> out;
+-	pass.filter(out);
+-	return out;
+-}
+-
+-/// Multiple passthrough filters of point cloud
+-pcl::PointCloud<Lidar::PointWithDist> passThrough(
+-	pcl::PointCloud<Lidar::PointWithDist> const & cloud,
+-	std::vector<PassThroughFilter> const & config
+-) {
+-	pcl::PointCloud<Lidar::PointWithDist> out = cloud;
+-	for (std::size_t i = 0; i < config.size(); ++i) {
+-		out = passThrough(out, config.at(i));
+-	}
+-	return out;
+-}
+-
+-/// Project points on plane given by coefficients
+-void projectOnPlane(pcl::ModelCoefficients::ConstPtr const & coefficients, pcl::PointCloud<Lidar::PointWithDist>::Ptr & cloud) {
+-	pcl::ProjectInliers<Lidar::PointWithDist> projection;
+-	projection.setModelType(pcl::SACMODEL_PLANE);
+-	projection.setInputCloud(cloud);
+-	projection.setModelCoefficients(coefficients);
+-	projection.filter(*cloud);
+-}
+-
+-/// Apply plane fit and return filtered point cloud
+-pcl::PointCloud<Lidar::PointWithDist> filterPlane(
+-	pcl::PointCloud<Lidar::PointWithDist> const & in,
+-	PlaneFilter const & config
+-) {
+-	// Compute coefficients of ground floor
+-	pcl::PointCloud<Lidar::PointWithDist>::Ptr out (new pcl::PointCloud<Lidar::PointWithDist>);
+-	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+-	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+-	pcl::SACSegmentation<Lidar::PointWithDist> plane_segmentation;
+-	plane_segmentation.setModelType(config.model_type);
+-	plane_segmentation.setDistanceThreshold(config.distance_threshold);
+-	plane_segmentation.setMethodType(pcl::SAC_RANSAC);
+-	plane_segmentation.setAxis(config.axis);
+-	plane_segmentation.setEpsAngle(config.eps_angle);
+-	plane_segmentation.setOptimizeCoefficients(true);
+-	plane_segmentation.setMaxIterations(config.max_iterations);
+-	plane_segmentation.setInputCloud(in.makeShared());
+-	plane_segmentation.segment(*inliers, *coefficients);
+-	std::cerr << "DEBUG llegue a pasar los filtros" << std::endl;
+-
+-	// Extract non ground floor PCL
+-	pcl::ExtractIndices<Lidar::PointWithDist> extract;
+-	extract.setInputCloud(in.makeShared());
+-	extract.setIndices(inliers);
+-	extract.setNegative(config.set_negative);
+-	extract.filter(*out);
+-
+-	// Optionally project to plane before returning
+-	if (config.return_projected) {
+-		projectOnPlane(coefficients, out);
+-	}
+-
+-	return *out;
+-}
+-
+-/// Get rings as a vector of pointers to the Velodyne Points to keep mapping from rings to original velodyne points
+-std::vector<std::vector<Lidar::PointWithDist*> > getRings(pcl::PointCloud<Lidar::PointWithDist> & in, LidarParameters const & lidar_parameters) {
+-	std::vector<std::vector<Lidar::PointWithDist*> > rings(lidar_parameters.number_layers);
+-	for (std::size_t i = 0; i < in.size(); ++i) {
+-		rings[in.at(i).ring].push_back(&(in.at(i)));
+-	}
+-	return rings;
+-}
+-
+-pcl::PointCloud<pcl::PointXYZ> toCloud(std::vector<Lidar::PointWithDist*> const & ring) {
+-	pcl::PointCloud<pcl::PointXYZ> out;
+-	for (std::size_t i = 0; i < ring.size(); ++i) {
+-		out.push_back(pcl::PointXYZ(ring.at(i)->x, ring.at(i)->y, ring.at(i)->z));
+-	}
+-	return out;
+-}
+-
+-
+-// Visualize rings to check if OK
+-void visualize(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
+-	pcl::visualization::PCLVisualizer viewer;
+-	for (std::size_t i = 0; i < rings.size(); ++i) {
+-		pcl::PointCloud<pcl::PointXYZ> cloud = toCloud(rings.at(i));
+-		viewer.addPointCloud<pcl::PointXYZ>(cloud.makeShared(), boost::to_string(i));
+-		viewer.spin();
+-	}
+-	viewer.addCoordinateSystem();
+-}
+-
+-
+-/// Returns true if the number of points is too small (c++03 compatible)
+-bool isFewPoints(std::vector<Lidar::PointWithDist*> const in) {
+-	return (in.size() < 4) ? true : false;
+-}
+-
+-/// Detect edges based on distances with respect to neighbouring points in the filtered velodyne point cloud
+-std::vector<std::vector<Lidar::PointWithDist*> > toDistanceRing(pcl::PointCloud<Lidar::PointWithDist> & in, float & average_distance_ring, LidarParameters const & lidar_parameters) {
+-	// Loop over the rings
+-	int max_points_ring = 0;
+-	std::vector<std::vector<Lidar::PointWithDist*> > rings = getRings(in, lidar_parameters);
+-	rings.erase(std::remove_if(rings.begin(), rings.end(), isFewPoints), rings.end()); // c++03 compatible
+-	for (std::vector<std::vector<Lidar::PointWithDist*> >::iterator ring = rings.begin(); ring < rings.end(); ring++){
+-		if (ring->size() < 10) {
+-			std::cerr << "Ring too small, continue.." << std::endl;
+-			continue;
+-		}
+-		(*ring->begin())->distance = 0;
+-		(*(ring->end()-1))->distance = 0;
+-		// Loop over the points in the ring
+-		float total_distance_ring = 0;
+-		for (std::vector<Lidar::PointWithDist*>::iterator pt = ring->begin() + 1; pt < ring->end() - 1; pt++) {
+-			Lidar::PointWithDist* next_point = *(pt + 1);
+-			Lidar::PointWithDist* prev_point = *(pt - 1);
+-			float dx = prev_point->x - next_point->x;
+-			float dy = prev_point->y - next_point->y;
+-			float dz = prev_point->z - next_point->z;
+-			(*pt)->distance = sqrt(dx*dx+dy*dy+dz*dz)/2;
+-			total_distance_ring += (*pt)->distance;
+-		}
+-		if (ring->size() > max_points_ring) {
+-			max_points_ring = ring->size();
+-			average_distance_ring = total_distance_ring/max_points_ring;
+-			std::cerr << "Ring good.." << std::endl;
+-		}
+-	}
+-	return rings;
+-}
+-
+-/// Create edges point cloud
+-pcl::PointCloud<Lidar::PointWithDist> createEdgeCloud(pcl::PointCloud<Lidar::PointWithDist> const & cloud, CloudEdgeFilter const & config, float const average_distance_ring) {
+-	pcl::PointCloud<Lidar::PointWithDist> edges_cloud;
+-	float min_threshold = 3*average_distance_ring; // min gap is 3 times resolution
+-	float max_threshold = (2*config.radius + 2*average_distance_ring); // Gap cannot be larger than diameter plus 2 times resolution
+-	for (std::size_t i = 0; i < cloud.size(); ++i) {
+-		if (cloud.at(i).distance > min_threshold && cloud.at(i).distance < max_threshold ) { // jump should be smaller or equal to diameter + 2* angeluar resuoltion
+-			edges_cloud.push_back(cloud.at(i));
+-		}
+-	}
+-	if (edges_cloud.size() == 0) {
+-		throw pcl::PCLException("Lidar calibration board detection edge cloud does not contain any points.");
+-	}
+-	return edges_cloud;
+-}
+-
+-// Filter outliers and return PointXYZ since velodyne specific info is no longer required from now on
+-pcl::PointCloud<pcl::PointXYZ> filterOutliers(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
+-	pcl::PointCloud<pcl::PointXYZ> out;
+-	int rings_with_circle = 0;
+-	for (std::size_t i = 0; i < rings.size(); ++i) {
+-		if(rings.at(i).size() >= 4){
+-			rings_with_circle++;
+-			for (std::size_t j = 0; j < rings.at(i).size(); ++j){
+-				pcl::PointXYZ point_xyz;
+-				point_xyz.x = rings.at(i).at(j)->x;
+-				point_xyz.y = rings.at(i).at(j)->y;
+-				point_xyz.z = rings.at(i).at(j)->z;
+-				out.push_back(point_xyz);
+-			}
+-		}
+-	}
+-	return out;
+-}
+-
+-/// Calculates the number of points within a certain radius
+-int pointsWithinRadius(pcl::PointXYZ const & point, pcl::PointCloud<Lidar::PointWithDist> const & cloud, float const radius) {
+-	// Convert cloud from velodyne point to pcl PointXYZ
+-	pcl::PointCloud<pcl::PointXYZ> out;
+-	for (std::size_t i = 0; i < cloud.size(); ++i) {
+-		pcl::PointXYZ point_xyz;
+-		point_xyz.x = cloud.at(i).x;
+-		point_xyz.y = cloud.at(i).y;
+-		point_xyz.z = cloud.at(i).z;
+-		out.push_back(point_xyz);
+-	}
+-
+-	// Indices and distances output
+-	std::vector<int> point_indices;
+-	std::vector<float> distances;
+-
+-	// Setup octree
+-	float resolution = 0.02f;
+-	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+-	octree.setInputCloud(out.makeShared());
+-	octree.addPointsFromInputCloud();
+-
+-	// Perform search
+-	return octree.radiusSearch(point, radius, point_indices, distances);
+-}
+-
+-/// Process to find a circle
+-bool processCircle(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar::PointWithDist> & plane, CircleDetection const & config, pcl::PointXYZ & point) {
+-	// Create circle segmentation object
+-	pcl::SACSegmentation<pcl::PointXYZ> seg;
+-	seg.setModelType(pcl::SACMODEL_CIRCLE3D);
+-	seg.setDistanceThreshold(config.distance_threshold);
+-	seg.setMethodType(pcl::SAC_RANSAC);
+-	seg.setOptimizeCoefficients(true);
+-	seg.setMaxIterations(config.max_iterations);
+-	seg.setRadiusLimits(config.min_radius, config.max_radius);
+-	std::cerr << "DEBUG pasa por RANSAC" << std::endl;
+-
+-	// Find circle
+-	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+-	seg.setInputCloud(cloud.makeShared());
+-	pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+-	seg.segment(*inliers, *coefficients);
+-
+-
+-
+-	if (inliers->indices.size() == 0) {
+-	    return false;
+-		//throw pcl::PCLException("Lidar calibration board detection could not estimate a circle fit for lidar camera edge cloud.");
+-	}
+-
+-	// Return center
+-	point.x = *coefficients->values.begin();
+-	point.y = *(coefficients->values.begin() + 1);
+-	point.z = *(coefficients->values.begin() + 2);
+-
+-	if (pointsWithinRadius(point, plane, config.radius_max_points) <= config.max_points_within_radius) {
+-		// Filter point cloud
+-        pcl::ExtractIndices<pcl::PointXYZ> extract;
+-        extract.setInputCloud(cloud.makeShared());
+-        extract.setIndices(inliers);
+-        extract.setNegative(true);
+-        extract.filter(cloud);
+-		return true;
+-	}
+-	return false;
+-}
+-
+-/// Detect circles and return point cloud with centroids of calibration pattern
+-pcl::PointCloud<pcl::PointXYZ> processCircles(pcl::PointCloud<pcl::PointXYZ> & cloud, pcl::PointCloud<Lidar::PointWithDist> & plane, CircleDetection const & config) {
+-	pcl::PointCloud<pcl::PointXYZ> out;
+-	std::size_t iteration = 0;
+-	while (out.size() < 4 && iteration < config.cluster_iterations) { // The calibration board consists of four circles that need to be detected
+-		iteration++;
+-		pcl::PointXYZ point;
+-		if (processCircle(cloud, plane, config, point)) {
+-			out.push_back(point);
+-		}
+-	}
+-	return out;
+-}
+-
+-
+-} // anonymous namespace
+-
+-pcl::PointCloud<pcl::PointXYZ> convertEigentoPointcloud(Eigen::Matrix3Xd matrix){
+-  pcl::PointCloud<pcl::PointXYZ> cloud;
+-  cloud.width  = matrix.cols();
+-  cloud.height = 1;
+-  cloud.points.resize (cloud.width * cloud.height);
+-
+-  for (size_t i = 0; i < cloud.points.size (); ++i)
+-  {
+-    cloud.points[i].x = matrix.col(i)[0];
+-    cloud.points[i].y = matrix.col(i)[1];
+-    cloud.points[i].z = matrix.col(i)[2];
+-  }
+-
+-  return cloud;
+-}
+-
+-Eigen::Matrix3Xd convertPointcloudToEigen(pcl::PointCloud<pcl::PointXYZ> cloud) {
+-  Eigen::Matrix3Xd out = Eigen::Matrix3Xd::Zero(3,cloud.points.size()) ;
+-
+-  for (size_t i = 0; i < cloud.points.size (); ++i)
+-  {
+-    // Convert to eigen matrix:
+-    out(0,i) = cloud.points[i].x;
+-    out(1,i) = cloud.points[i].y;
+-    out(2,i) = cloud.points[i].z;
+-  }
+-
+-  return out;
+-}
+-
+-/// Apply plane fit and return filtered point cloud
+-pcl::ModelCoefficients getPlaneCoefficients(
+-	pcl::PointCloud<Lidar::PointWithDist> const & in,
+-	PlaneFilter const & config
+-) {
+-	// Compute coefficients of ground floor
+-	pcl::PointCloud<Lidar::PointWithDist>::Ptr out (new pcl::PointCloud<Lidar::PointWithDist>);
+-	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+-	pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+-	pcl::SACSegmentation<Lidar::PointWithDist> plane_segmentation;
+-	plane_segmentation.setModelType(config.model_type);
+-	plane_segmentation.setDistanceThreshold(config.distance_threshold);
+-	plane_segmentation.setMethodType(pcl::SAC_RANSAC);
+-	plane_segmentation.setAxis(config.axis);
+-	plane_segmentation.setEpsAngle(config.eps_angle);
+-	plane_segmentation.setOptimizeCoefficients(true);
+-	plane_segmentation.setMaxIterations(config.max_iterations);
+-	plane_segmentation.setInputCloud(in.makeShared());
+-	plane_segmentation.segment(*inliers, *coefficients);
+-
+-	return *coefficients;
+-}
+-
+-Eigen::Matrix3Xd projectToCalibrationBoardPlane(Eigen::Matrix3Xd in, pcl::ModelCoefficients coefficients_plane) {
+-	Eigen::Vector3d normal_vector;
+-	normal_vector << coefficients_plane.values[0], coefficients_plane.values[1], coefficients_plane.values[2];
+-
+-	Eigen::Matrix3Xd out = Eigen::Matrix3Xd::Zero(in.rows(), in.cols());
+-	for (size_t i = 0; i < in.cols(); i++) {
+-		// compute disntance
+-		double distance = normal_vector.dot(in.col(i)) + coefficients_plane.values[3];
+-		// Correct point using normal and distance
+-		out.col(i) = in.col(i) - distance*normal_vector;
+-	}
+-
+-	return out;
+-}
+-pcl::PointCloud<pcl::PointXYZ> refinement(pcl::PointCloud<pcl::PointXYZ> pattern, Configuration const & config) {
+-	// Define calibration board pattern
+-	 Eigen::Matrix3Xd  calibration_board(3,4);
+-	 double width_calibration_board = config.refinement.width;
+-	 double heigth_calibration_board = config.refinement.height;
+-	 calibration_board << 0, width_calibration_board, 0, width_calibration_board,
+-	         0, 0, heigth_calibration_board, heigth_calibration_board,
+-	         0, 0, 0, 0;
+-
+-	// Convert detections to Eigen
+-	Eigen::Matrix3Xd detections = convertPointcloudToEigen(pattern);
+-	// Refine circle centers
+-	Eigen::Matrix3Xd results = refine2D(calibration_board, detections, config.refinement.threshold_inlier);
+-	// Convert Eigen to PCL
+-	pcl::PointCloud<pcl::PointXYZ> refined_pattern = convertEigentoPointcloud(results);
+-
+-	return refined_pattern;
+-}
+-pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Lidar::PointWithDist> const & in, Configuration const & config) {
+-	// Passthrough filter
+-	pcl::PointCloud<Lidar::PointWithDist> passthrough_cloud = passThrough(in, config.pass_through_filter);
+-
+-	// Compute coefficients of ground floor
+-	pcl::PointCloud<Lidar::PointWithDist> cloud_without_ground_floor = filterPlane(passthrough_cloud, config.ground_floor_filter);
+-
+-	// Compute coefficients of vertical plane and extract points of vertical plane
+-	pcl::PointCloud<Lidar::PointWithDist> cloud_calibration_board = filterPlane(cloud_without_ground_floor, config.calibration_board_filter);
+-
+-	// Edge detection: Loop over all rings, and then over all points, and calculate distance w.r.t. neighbors.
+-	float average_distance_ring;
+-	float test;
+-	std::vector<std::vector<Lidar::PointWithDist*> > rings = toDistanceRing(cloud_calibration_board, average_distance_ring, config.lidar_parameters);
+-	std::vector<std::vector<Lidar::PointWithDist*> > nofilterrings = toDistanceRing(in, test, config.lidar_parameters);
+-	if (config.visualize) { 
+-			std::cerr << "DEBUG visualizando anillos no filtrados" << std::endl;
+-		visualize(nofilterrings); 
+-			std::cerr << "DEBUG visualizando anillos filtrados" << std::endl;
+-		visualize(rings); 
+-		}
+-
+-	// Create unorganized point cloud of edge points
+-	pcl::PointCloud<Lidar::PointWithDist> edges_cloud = createEdgeCloud(cloud_calibration_board, config.cloud_edge_filter, average_distance_ring);
+-
+-	// Remove edge points from edge cloud if corresponding ring contains only a < 4 points
+-	std::vector<std::vector<Lidar::PointWithDist*> > edges_rings = getRings(edges_cloud, config.lidar_parameters);
+-	pcl::PointCloud<pcl::PointXYZ> circles_cloud = filterOutliers(edges_rings);
+-
+-	// Circle3d fit for all four circles
+-	pcl::PointCloud<pcl::PointXYZ> pattern = processCircles(circles_cloud, cloud_without_ground_floor, config.circle_detection);
+-	if (config.visualize) { 
+-			std::cerr << "DEBUG visualizando circulos" << std::endl;
+-
+-		visualize(cloud_calibration_board, pattern, edges_cloud); }
+-
+-	// Refine circle centers using calibration board geometry
+-	if (config.refinement.refine) {
+-		// Refinement using kabsch
+-		pattern = refinement(pattern, config);
+-	}
+-
+-	return pattern;
+-}
+-
+-} // lidar_detector namespace
+\ No newline at end of file
+diff --git a/lidar_detector/include/lidar_detector/visualize.hpp b/lidar_detector/include/lidar_detector/visualize.hpp
+index 1b0119a..398de86 100644
+--- a/lidar_detector/include/lidar_detector/visualize.hpp
++++ b/lidar_detector/include/lidar_detector/visualize.hpp
+@@ -40,10 +40,10 @@ void visualize(pcl::PointCloud<T> const & cloud, pcl::PointCloud<Y> const & patt
+ 	viewer.addPointCloud<T>(cloud.makeShared(), "cloud");
+ 	viewer.addCoordinateSystem();
+ 	for (std::size_t i = 0; i < pattern.size(); ++i) {
+-		viewer.addSphere(pattern.at(i), 0.01, 1, 0, 0, std::to_string(i));
++		viewer.addSphere(pattern.at(i), 0.01, 1, 0, 0, boost::to_string(i));
+ 	}
+ 	for (std::size_t i = 0; i < edges_cloud.size(); ++i) {
+-		viewer.addSphere(edges_cloud.at(i), 0.01, 0, 1, 0, std::to_string(i+100));
++		viewer.addSphere(edges_cloud.at(i), 0.01, 0, 1, 0, boost::to_string(i+100));
+ 	}
+ 	viewer.spin();
+ }
+diff --git a/lidar_detector/src/lib/keypoint_detection.cpp b/lidar_detector/src/lib/keypoint_detection.cpp
+index d87714b..fa79dd1 100644
+--- a/lidar_detector/src/lib/keypoint_detection.cpp
++++ b/lidar_detector/src/lib/keypoint_detection.cpp
+@@ -31,7 +31,6 @@ pcl::PointCloud<Lidar::PointWithDist> passThrough(
+ 	pcl::PointCloud<Lidar::PointWithDist> const & cloud,
+ 	PassThroughFilter const & config
+ ) {
+-	std::cerr << "DEBUG aplicando filtro passtrough" << std::endl;
+ 	pcl::PassThrough<Lidar::PointWithDist> pass;
+ 	pass.setInputCloud(cloud.makeShared());
+ 	pass.setFilterFieldName(config.dim);
+@@ -122,7 +121,7 @@ void visualize(std::vector<std::vector<Lidar::PointWithDist*> > const & rings) {
+ 	pcl::visualization::PCLVisualizer viewer;
+ 	for (std::size_t i = 0; i < rings.size(); ++i) {
+ 		pcl::PointCloud<pcl::PointXYZ> cloud = toCloud(rings.at(i));
+-		viewer.addPointCloud<pcl::PointXYZ>(cloud.makeShared(), std::to_string(i));
++		viewer.addPointCloud<pcl::PointXYZ>(cloud.makeShared(), boost::to_string(i));
+ 		viewer.spin();
+ 	}
+ 	viewer.addCoordinateSystem();
+@@ -159,7 +158,6 @@ std::vector<std::vector<Lidar::PointWithDist*> > toDistanceRing(pcl::PointCloud<
+ 			total_distance_ring += (*pt)->distance;
+ 		}
+ 		if (ring->size() > max_points_ring) {
+-			std::cerr << "Ring good, save.." << std::endl;
+ 			max_points_ring = ring->size();
+ 			average_distance_ring = total_distance_ring/max_points_ring;
+ 		}
+@@ -381,21 +379,10 @@ pcl::PointCloud<pcl::PointXYZ> keypointDetection(pcl::PointCloud<Lidar::PointWit
+ 	// Compute coefficients of vertical plane and extract points of vertical plane
+ 	pcl::PointCloud<Lidar::PointWithDist> cloud_calibration_board = filterPlane(cloud_without_ground_floor, config.calibration_board_filter);
+ 
+-	/// Edge detection: Loop over all rings, and then over all points, and calculate distance w.r.t. neighbors.
++	// Edge detection: Loop over all rings, and then over all points, and calculate distance w.r.t. neighbors.
+ 	float average_distance_ring;
+ 	std::vector<std::vector<Lidar::PointWithDist*> > rings = toDistanceRing(cloud_calibration_board, average_distance_ring, config.lidar_parameters);
+-	if (config.visualize) { 
+-		/*/////////////TEST
+-		float test;
+-		pcl::PointCloud<Lidar::PointWithDist> noFilterTestClod = in;
+-		std::vector<std::vector<Lidar::PointWithDist*> > nofilterrings = toDistanceRing(noFilterTestClod, test, config.lidar_parameters);
+-		std::cerr << "DEBUG visualizando anillos no filtrados" << std::endl;
+-		visualize(nofilterrings); 
+-		/*/////////////TEST
+-		
+-		std::cerr << "DEBUG visualizando anillos filtrados" << std::endl;
+-		visualize(rings); 
+-		}
++	if (config.visualize) { visualize(rings); }
+ 
+ 	// Create unorganized point cloud of edge points
+ 	pcl::PointCloud<Lidar::PointWithDist> edges_cloud = createEdgeCloud(cloud_calibration_board, config.cloud_edge_filter, average_distance_ring);
+diff --git a/mono_detector/CMakeLists.txt b/mono_detector/CMakeLists.txt
+index 104a249..ac2a942 100644
+--- a/mono_detector/CMakeLists.txt
++++ b/mono_detector/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ cmake_minimum_required(VERSION 2.8.3)
+ project(mono_detector)
+ 
+-set (CMAKE_CXX_STANDARD 14)
++set (CMAKE_CXX_STANDARD 11)
+ 
+ find_package(catkin REQUIRED COMPONENTS
+ 	cmake_modules
+diff --git a/mono_detector/config/image_processing.yaml b/mono_detector/config/image_processing.yaml
+index 5691889..571c1b8 100644
+--- a/mono_detector/config/image_processing.yaml
++++ b/mono_detector/config/image_processing.yaml
+@@ -27,8 +27,8 @@ hough:                      # Detect circles using hough transform
+ 
+ roi:                        # Region of interest to find circles
+     x: 0
+-    y: 0
+-    width: 640              #800
+-    height: 512             #800
++    y: 850
++    width: 1900
++    height: 400
+ 
+-visualize: true
++visualize: false
+diff --git a/mono_detector/src/cli.cpp b/mono_detector/src/cli.cpp
+index da61bae..21ab739 100644
+--- a/mono_detector/src/cli.cpp
++++ b/mono_detector/src/cli.cpp
+@@ -98,7 +98,7 @@ int main(int argc, char * * argv) {
+ 
+ 	// Read image
+ 	std::string image_file_name = argv[1];
+-	cv::Mat image = cv::imread(image_file_name, cv::IMREAD_GRAYSCALE);
++	cv::Mat image = cv::imread(image_file_name, CV_LOAD_IMAGE_GRAYSCALE);
+ 	if (image.empty()) {
+ 		std::cout << "Cannot open file: '" << image_file_name << "'." << std::endl;
+ 		return 1;
+diff --git a/mono_detector/src/lib/node_lib.cpp b/mono_detector/src/lib/node_lib.cpp
+index dc0a6ff..cb2941a 100644
+--- a/mono_detector/src/lib/node_lib.cpp
++++ b/mono_detector/src/lib/node_lib.cpp
+@@ -29,89 +29,63 @@
+ 
+ namespace mono_detector {
+ 
++
+ MonoDetectorNode::MonoDetectorNode(ros::NodeHandle & nh) : nh_(nh) {
+-    ROS_INFO("Initialized mono detector.");
+-
+-    // Load object points from ros parameter server
+-    std::string object_points_file;
+-    nh_.param<std::string>("object_points_file", object_points_file, ros::package::getPath("mono_detector") + "/config/object_points.yaml");
+-    object_points_ = YAML::LoadFile(object_points_file).as<std::vector<cv::Point3f>>();
+-    cv::Point3f center = calculateCenter(object_points_);
+-    std::sort(object_points_.begin(), object_points_.end(), [center](cv::Point3f a, cv::Point3f b) {
+-        return std::atan((a.y - center.y) / (a.x - center.x)) > std::atan((b.y - center.y) / (b.x - center.x));
+-    });
+-
+-    // Load configuration from file
+-    std::string yaml_file;
+-    nh_.param<std::string>("yaml_file", yaml_file, ros::package::getPath("mono_detector") + "/config/image_processing.yaml");
+-    config_ = YAML::LoadFile(yaml_file).as<mono_detector::Configuration>();
+-
+-    // Load topic names from parameters
+-    std::string image_topic, camera_info_topic, point_cloud_topic;
+-    nh_.param<std::string>("image_topic", image_topic, "/generic_camera/image_raw");
+-    nh_.param<std::string>("camera_info_topic", camera_info_topic, "/generic_camera/camera_info");
+-    nh_.param<std::string>("point_cloud_topic", point_cloud_topic, "mono_pattern");
+-
+-    // Setup subscriber and publisher
+-    image_subscriber_       = nh_.subscribe(image_topic, 1, &MonoDetectorNode::imageCallback, this);
+-    camera_info_subscriber_ = nh_.subscribe(camera_info_topic, 1, &MonoDetectorNode::cameraInfoCallback, this);
+-    point_cloud_publisher_  = nh_.advertise<sensor_msgs::PointCloud2>(point_cloud_topic, 100);
++	ROS_INFO("Initialized mono detector.");
++
++	// Load object points from ros parameter server
++	std::string object_points_file;
++	nh_.param<std::string>("object_points_file", object_points_file, ros::package::getPath("mono_detector") + "/" + "config/object_points.yaml");
++	object_points_ = YAML::LoadFile(object_points_file).as<std::vector<cv::Point3f>>();
++	cv::Point3f center = calculateCenter(object_points_);
++	std::sort(object_points_.begin(), object_points_.end(), [center](cv::Point3f a, cv::Point3f b) {
++		return std::atan((a.y - center.y) / (a.x - center.x)) > std::atan((b.y - center.y) / (b.x - center.x));
++	});
++
++	// Load configuration from file
++	std::string yaml_file;
++	nh_.param<std::string>("yaml_file", yaml_file, ros::package::getPath("mono_detector") + "/" + "config/image_processing.yaml");
++	config_ = YAML::LoadFile(yaml_file).as<mono_detector::Configuration>();
++
++	// Setup subscriber and publisher
++	image_subscriber_       = nh_.subscribe("/ueye/left/image_raw", 1, &MonoDetectorNode::imageCallback, this);
++	camera_info_subscriber_ = nh_.subscribe("/ueye/left/camera_info", 1, &MonoDetectorNode::cameraInfoCallback, this); // ToDo: Replace with camera subscriber for sync camera info
++	point_cloud_publisher_  = nh_.advertise<sensor_msgs::PointCloud2>("mono_pattern", 100);
+ }
+ 
+ void MonoDetectorNode::imageCallback(sensor_msgs::ImageConstPtr const & in) {
+-    ROS_INFO_ONCE("Receiving images.");
+-
+-    if (intrinsics_.fx() != 0 && intrinsics_.fy() != 0 && intrinsics_.cx() != 0 && intrinsics_.cy() != 0) { // Verifica si las intrínsecas son válidas
+-        try {
+-            std::vector<cv::Point2f> image_points;
+-            std::vector<float> radi;
+-            detectMono(toOpencv(in), config_, image_points, radi);
+-            ROS_INFO("A");
+-
+-            Eigen::Isometry3f isometry = solvePose(image_points, object_points_, intrinsics_);
+-            ROS_INFO("B");
+-
+-            pcl::PointCloud<pcl::PointXYZ> transformed_pattern;
+-            pcl::transformPointCloud(toPcl(object_points_), transformed_pattern, isometry);
+-            ROS_INFO("C");
+-
+-            ROS_INFO_ONCE("Detected a mono detector pattern point cloud at least once.");
+-            sensor_msgs::PointCloud2 out;
+-            pcl::toROSMsg(transformed_pattern, out);
+-            out.header = in->header;
+-            point_cloud_publisher_.publish(out);
+-            ROS_INFO("D");
+-        } catch (std::exception & e) {
+-            ROS_ERROR_STREAM("Exception thrown: '" << e.what() << "'.");
+-            ROS_INFO("E");
+-        }
+-    } else {
+-        ROS_WARN("Waiting for valid camera info.");
+-    }
++	ROS_INFO_ONCE("Receiving images.");
++
++	try {
++		// Call to do image processing
++		std::vector<cv::Point2f> image_points;
++		std::vector<float> radi;
++		detectMono(toOpencv(in), config_, image_points, radi);
++
++		// Call to solve pnp
++		Eigen::Isometry3f isometry = solvePose(image_points, object_points_, intrinsics_);
++
++		// Transform pattern
++		pcl::PointCloud<pcl::PointXYZ> transformed_pattern;
++		pcl::transformPointCloud(toPcl(object_points_), transformed_pattern, isometry);
++
++		// Publish pattern
++		ROS_INFO_ONCE("Detected a mono detector pattern point cloud at least once.");
++		sensor_msgs::PointCloud2 out;
++		pcl::toROSMsg(transformed_pattern, out);
++		out.header = in->header;
++		point_cloud_publisher_.publish(out);
++	} catch (std::exception & e) {
++		ROS_ERROR_STREAM("Exception thrown: '" << e.what() << "'.");
++	}
+ }
+ 
+-
+-
+ void MonoDetectorNode::cameraInfoCallback(sensor_msgs::CameraInfo const & camera_info) {
+-    ROS_INFO_ONCE("Receiving camera info.");
+-    
+-    // Verifica que los parámetros intrínsecos no estén vacíos o invalidos
+-    for (int i = 0; i < 9; i++) {
+-        ROS_INFO("Camera info K[%d]: %f", i, camera_info.K[i]);
+-    }
+-
+-    if (camera_info.K[0] == 0 && camera_info.K[4] == 0 && camera_info.K[8] == 0) {
+-        ROS_ERROR("Camera info contains an invalid intrinsic matrix.");
+-        return;
+-    }
+-
+-
++	ROS_INFO_ONCE("Receiving camera info.");
++	// ToDo: Use message filters to make sure to get both camera info and image
+ 	if (!intrinsics_.fromCameraInfo(camera_info)) {
+-		ROS_ERROR("Failed to convert camera info.");
+-		//throw std::runtime_error("Conversion failed.");
++		throw std::runtime_error("Unable to convert camera info to pinhole camera model.");
+ 	}
+-
+ }
+ 
+-} // namespace mono_detector
+-
++}
+diff --git a/mono_detector/src/lib/util.cpp b/mono_detector/src/lib/util.cpp
+index 8e5c6fe..2452cbb 100644
+--- a/mono_detector/src/lib/util.cpp
++++ b/mono_detector/src/lib/util.cpp
+@@ -119,7 +119,7 @@ void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv
+ 		cv::rectangle(draw, roi.tl(), roi.br(), cv::Scalar(255, 0, 0), 3);
+ 	}
+ 	std::string window_name = "result";
+-	cv::namedWindow(window_name, cv::WINDOW_NORMAL);
++	cv::namedWindow(window_name, CV_WINDOW_NORMAL);
+ 	cv::imshow(window_name, draw);
+ 	cv::waitKey(100);
+ }
+diff --git a/multi_sensor_calibration_launch/launch/calibration.launch b/multi_sensor_calibration_launch/launch/calibration.launch
+deleted file mode 100644
+index 29f30fe..0000000
+--- a/multi_sensor_calibration_launch/launch/calibration.launch
++++ /dev/null
+@@ -1,45 +0,0 @@
+-<launch>
+-
+-    <!-- Lidar Detector -->
+-    <node pkg="multi_sensor_calibration" type="lidar_detector" name="lidar_detector_node" output="screen">
+-        <remap from="/velodyne_points" to="/velodyne_points"/>
+-        <remap from="/lidar_pattern" to="/lidar_pattern"/>
+-        <remap from="/lidar_pattern_markers" to="/lidar_pattern_markers"/>
+-    </node>
+-
+-    <!-- Radar Detector-->
+-    <node pkg="multi_sensor_calibration" type="radar_detector" name="radar_detector_node" output="screen">
+-        <remap from="/radar_converter/detections" to="/radar_converter/detections"/>
+-        <remap from="/radar_pattern" to="/radar_pattern"/>
+-        <remap from="/radar_marker" to="/radar_marker"/>
+-    </node>
+-
+-    <!-- Stereo Detector -->
+-    <node pkg="multi_sensor_calibration" type="stereo_detector" name="stereo_detector_node" output="screen">
+-        <remap from="/ueye/left/image_rect_color" to="/ueye/left/image_rect_color"/>
+-        <remap from="/ueye/left/camera_info" to="/ueye/left/camera_info"/>
+-        <remap from="/ueye/right/image_rect_color" to="/ueye/right/image_rect_color"/>
+-        <remap from="/ueye/right/camera_info" to="/ueye/right/camera_info"/>
+-        <remap from="/stereo_pattern" to="/stereo_pattern"/>
+-        <remap from="/stereo_pattern_markers" to="/stereo_pattern_markers"/>
+-    </node>
+-
+-    <!-- Monocular Detector flir-->
+-    <node pkg="multi_sensor_calibration" type="mono_detector" name="mono_detector_node" output="screen">
+-        <remap from="/phm/thermal_camera/image" to="/phm/thermal_camera/image"/>
+-        <remap from="/phm/thermal_camera/camera_info" to="/phm/thermal_camera/camera_info"/>
+-        <remap from="/mono_pattern_flir" to="/mono_pattern_flir"/>
+-    </node>
+-
+-    <!-- Accumulator -->
+-    <node pkg="multi_sensor_calibration" type="accumulator" name="accumulator_node" output="screen">
+-        <remap from="/accumulator/toggle_accumulate" to="/accumulator/toggle_accumulate"/>
+-    </node>
+-
+-    <!-- Optimizer -->
+-    <node pkg="multi_sensor_calibration" type="server.py" name="optimizer_node" output="screen">
+-        <param name="calibration_mode" value="FCPE"/>
+-        <param name="reference_sensor" value="velodyne"/>
+-    </node>
+-
+-</launch>
+diff --git a/optimization/data/camera1_csv_dump.csv b/optimization/data/camera1_csv_dump.csv
+deleted file mode 100644
+index b28b04f..0000000
+--- a/optimization/data/camera1_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+-
+-
+-
+diff --git a/optimization/data/camera1_yaml_dump.yaml b/optimization/data/camera1_yaml_dump.yaml
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/optimization/data/left_csv_dump.csv b/optimization/data/left_csv_dump.csv
+deleted file mode 100644
+index d112dd8..0000000
+--- a/optimization/data/left_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+--2.686418890953063965e-01,-3.884689882397651672e-02,-2.676539123058319092e-01,-3.838549181818962097e-02,2.932798862457275391e-01,5.189163088798522949e-01,2.959128916263580322e-01,5.274807810783386230e-01,-1.142508983612060547e+00,-9.113423228263854980e-01,-1.147248983383178711e+00,-9.176899194717407227e-01,-1.082381963729858398e+00,-8.593261241912841797e-01,-1.093294024467468262e+00,-8.633857965469360352e-01,6.430450081825256348e-01,8.678011894226074219e-01,6.436023116111755371e-01,8.604475259780883789e-01,7.391859292984008789e-01,9.767078161239624023e-01,7.491691112518310547e-01,9.886848926544189453e-01,-8.004731684923171997e-02,1.519826948642730713e-01,-7.809016853570938110e-02,1.558599025011062622e-01,-8.289629220962524414e-01,-6.022226214408874512e-01,-8.198177218437194824e-01,-5.952476263046264648e-01,-7.832695841789245605e-01,-5.542159080505371094e-01,-7.745059728622436523e-01,-5.459144711494445801e-01,-1.681507974863052368e-01,6.746443361043930054e-02,-1.651652008295059204e-01,7.056891918182373047e-02,4.801492989063262939e-01,7.077903747558593750e-01,4.953688085079193115e-01,7.169222235679626465e-01
+-1.219712018966674805e+00,1.229766964912414551e+00,9.921228885650634766e-01,1.003087997436523438e+00,1.262094020843505859e+00,1.256590008735656738e+00,1.039654016494750977e+00,1.032956957817077637e+00,1.230831980705261230e+00,1.238306045532226562e+00,1.001037955284118652e+00,1.011453032493591309e+00,1.201717019081115723e+00,1.216048002243041992e+00,9.742509722709655762e-01,9.863163828849792480e-01,1.019323945045471191e+00,1.008458018302917480e+00,1.251039028167724609e+00,1.240679979324340820e+00,1.182186961174011230e+00,1.190711975097656250e+00,9.537584185600280762e-01,9.606419205665588379e-01,1.171821951866149902e+00,1.179021000862121582e+00,9.450973868370056152e-01,9.471637010574340820e-01,9.206603169441223145e-01,9.295501112937927246e-01,1.149088025093078613e+00,1.160894036293029785e+00,8.392648100852966309e-01,8.478003740310668945e-01,1.068626999855041504e+00,1.078091025352478027e+00,1.079779982566833496e+00,1.086120009422302246e+00,8.528854250907897949e-01,8.556209802627563477e-01,1.085682988166809082e+00,1.083271980285644531e+00,8.580046296119689941e-01,8.507016897201538086e-01
+-4.619318962097167969e+00,4.642156124114990234e+00,4.693065166473388672e+00,4.715290069580078125e+00,4.864164829254150391e+00,4.823890209197998047e+00,4.958624839782714844e+00,4.921647071838378906e+00,4.751577854156494141e+00,4.793057918548583984e+00,4.822556018829345703e+00,4.879872798919677734e+00,4.540168762207031250e+00,4.586379051208496094e+00,4.617393016815185547e+00,4.665760993957519531e+00,4.740540981292724609e+00,4.661676883697509766e+00,4.666452884674072266e+00,4.585558891296386719e+00,4.217525959014892578e+00,4.205297946929931641e+00,4.288146018981933594e+00,4.279553890228271484e+00,4.189236164093017578e+00,4.196094036102294922e+00,4.263768196105957031e+00,4.270932197570800781e+00,4.136475086212158203e+00,4.202300071716308594e+00,4.060008049011230469e+00,4.122850894927978516e+00,3.498631954193115234e+00,3.542655944824218750e+00,3.420003890991210938e+00,3.465986967086791992e+00,3.470001935958862305e+00,3.473934888839721680e+00,3.546416044235229492e+00,3.547275066375732422e+00,3.454035043716430664e+00,3.397836923599243164e+00,3.527596950531005859e+00,3.472759008407592773e+00
+diff --git a/optimization/data/left_yaml_dump.yaml b/optimization/data/left_yaml_dump.yaml
+deleted file mode 100644
+index e860032..0000000
+--- a/optimization/data/left_yaml_dump.yaml
++++ /dev/null
+@@ -1,44 +0,0 @@
+-- {x: -0.2686418890953064, y: 1.2197120189666748, z: 4.619318962097168}
+-- {x: -0.03884689882397652, y: 1.2297669649124146, z: 4.64215612411499}
+-- {x: -0.2676539123058319, y: 0.9921228885650635, z: 4.693065166473389}
+-- {x: -0.03838549181818962, y: 1.0030879974365234, z: 4.715290069580078}
+-- {x: 0.29327988624572754, y: 1.2620940208435059, z: 4.86416482925415}
+-- {x: 0.5189163088798523, y: 1.2565900087356567, z: 4.823890209197998}
+-- {x: 0.29591289162635803, y: 1.039654016494751, z: 4.958624839782715}
+-- {x: 0.5274807810783386, y: 1.0329569578170776, z: 4.921647071838379}
+-- {x: -1.1425089836120605, y: 1.2308319807052612, z: 4.751577854156494}
+-- {x: -0.9113423228263855, y: 1.2383060455322266, z: 4.793057918548584}
+-- {x: -1.1472489833831787, y: 1.0010379552841187, z: 4.822556018829346}
+-- {x: -0.9176899194717407, y: 1.0114530324935913, z: 4.879872798919678}
+-- {x: -1.0823819637298584, y: 1.2017170190811157, z: 4.540168762207031}
+-- {x: -0.8593261241912842, y: 1.216048002243042, z: 4.586379051208496}
+-- {x: -1.0932940244674683, y: 0.9742509722709656, z: 4.6173930168151855}
+-- {x: -0.863385796546936, y: 0.9863163828849792, z: 4.6657609939575195}
+-- {x: 0.6430450081825256, y: 1.0193239450454712, z: 4.740540981292725}
+-- {x: 0.8678011894226074, y: 1.0084580183029175, z: 4.66167688369751}
+-- {x: 0.6436023116111755, y: 1.2510390281677246, z: 4.666452884674072}
+-- {x: 0.8604475259780884, y: 1.2406799793243408, z: 4.585558891296387}
+-- {x: 0.7391859292984009, y: 1.1821869611740112, z: 4.217525959014893}
+-- {x: 0.9767078161239624, y: 1.1907119750976562, z: 4.205297946929932}
+-- {x: 0.749169111251831, y: 0.9537584185600281, z: 4.288146018981934}
+-- {x: 0.988684892654419, y: 0.9606419205665588, z: 4.2795538902282715}
+-- {x: -0.08004731684923172, y: 1.17182195186615, z: 4.189236164093018}
+-- {x: 0.15198269486427307, y: 1.1790210008621216, z: 4.196094036102295}
+-- {x: -0.07809016853570938, y: 0.9450973868370056, z: 4.263768196105957}
+-- {x: 0.15585990250110626, y: 0.9471637010574341, z: 4.270932197570801}
+-- {x: -0.8289629220962524, y: 0.9206603169441223, z: 4.136475086212158}
+-- {x: -0.6022226214408875, y: 0.9295501112937927, z: 4.202300071716309}
+-- {x: -0.8198177218437195, y: 1.1490880250930786, z: 4.0600080490112305}
+-- {x: -0.5952476263046265, y: 1.1608940362930298, z: 4.1228508949279785}
+-- {x: -0.7832695841789246, y: 0.8392648100852966, z: 3.4986319541931152}
+-- {x: -0.5542159080505371, y: 0.8478003740310669, z: 3.5426559448242188}
+-- {x: -0.7745059728622437, y: 1.0686269998550415, z: 3.420003890991211}
+-- {x: -0.5459144711494446, y: 1.078091025352478, z: 3.465986967086792}
+-- {x: -0.16815079748630524, y: 1.0797799825668335, z: 3.4700019359588623}
+-- {x: 0.0674644336104393, y: 1.0861200094223022, z: 3.4739348888397217}
+-- {x: -0.16516520082950592, y: 0.8528854250907898, z: 3.5464160442352295}
+-- {x: 0.07056891918182373, y: 0.8556209802627563, z: 3.5472750663757324}
+-- {x: 0.4801492989063263, y: 1.085682988166809, z: 3.4540350437164307}
+-- {x: 0.7077903747558594, y: 1.0832719802856445, z: 3.397836923599243}
+-- {x: 0.4953688085079193, y: 0.858004629611969, z: 3.527596950531006}
+-- {x: 0.7169222235679626, y: 0.8507016897201538, z: 3.4727590084075928}
+diff --git a/optimization/data/lidar1_csv_dump.csv b/optimization/data/lidar1_csv_dump.csv
+deleted file mode 100644
+index b28b04f..0000000
+--- a/optimization/data/lidar1_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+-
+-
+-
+diff --git a/optimization/data/lidar1_yaml_dump.yaml b/optimization/data/lidar1_yaml_dump.yaml
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/optimization/data/radar1_csv_dump.csv b/optimization/data/radar1_csv_dump.csv
+deleted file mode 100644
+index b28b04f..0000000
+--- a/optimization/data/radar1_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+-
+-
+-
+diff --git a/optimization/data/radar1_yaml_dump.yaml b/optimization/data/radar1_yaml_dump.yaml
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/optimization/data/radar_csv_dump.csv b/optimization/data/radar_csv_dump.csv
+deleted file mode 100644
+index 03a1269..0000000
+--- a/optimization/data/radar_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+-3.311549901962280273e+00,3.504178047180175781e+00,3.426387071609497070e+00,3.215751886367797852e+00,3.246181964874267578e+00,2.841811895370483398e+00,2.853445053100585938e+00,2.755198955535888672e+00,2.105849981307983398e+00,2.119462966918945312e+00,2.048446893692016602e+00
+-3.620319068431854248e-01,-2.335622012615203857e-01,1.259281992912292480e+00,1.219290971755981445e+00,-5.926455259323120117e-01,-6.940085887908935547e-01,1.703477054834365845e-01,9.710264205932617188e-01,9.395908713340759277e-01,2.719669938087463379e-01,-4.192478954792022705e-01
+-8.684152603149414062e+00,9.850021362304687500e+00,4.094326019287109375e+00,4.672426223754882812e+00,7.197320938110351562e+00,7.314020156860351562e+00,7.612086772918701172e+00,5.385302066802978516e+00,2.872200012207031250e+00,6.617340087890625000e+00,5.952294826507568359e+00
+diff --git a/optimization/data/radar_yaml_dump.yaml b/optimization/data/radar_yaml_dump.yaml
+deleted file mode 100644
+index 03cef94..0000000
+--- a/optimization/data/radar_yaml_dump.yaml
++++ /dev/null
+@@ -1,11 +0,0 @@
+-- {x: 3.3115499019622803, y: 0.3620319068431854, z: 8.684152603149414}
+-- {x: 3.504178047180176, y: -0.23356220126152039, z: 9.850021362304688}
+-- {x: 3.426387071609497, y: 1.2592819929122925, z: 4.094326019287109}
+-- {x: 3.215751886367798, y: 1.2192909717559814, z: 4.672426223754883}
+-- {x: 3.2461819648742676, y: -0.592645525932312, z: 7.197320938110352}
+-- {x: 2.8418118953704834, y: -0.6940085887908936, z: 7.314020156860352}
+-- {x: 2.853445053100586, y: 0.17034770548343658, z: 7.612086772918701}
+-- {x: 2.7551989555358887, y: 0.9710264205932617, z: 5.3853020668029785}
+-- {x: 2.1058499813079834, y: 0.9395908713340759, z: 2.8722000122070312}
+-- {x: 2.1194629669189453, y: 0.27196699380874634, z: 6.617340087890625}
+-- {x: 2.0484468936920166, y: -0.41924789547920227, z: 5.952294826507568}
+diff --git a/optimization/data/velodyne_csv_dump.csv b/optimization/data/velodyne_csv_dump.csv
+deleted file mode 100644
+index 201c472..0000000
+--- a/optimization/data/velodyne_csv_dump.csv
++++ /dev/null
+@@ -1,3 +0,0 @@
+--3.669686913490295410e-01,-1.349014043807983398e-01,-3.678466081619262695e-01,-1.335339993238449097e-01,2.060254961252212524e-01,4.527857005596160889e-01,2.000187039375305176e-01,4.370078146457672119e-01,-1.234979033470153809e+00,-1.006732940673828125e+00,-1.266245007514953613e+00,-1.033499956130981445e+00,-1.194053053855895996e+00,-9.620708227157592773e-01,-1.197185039520263672e+00,-9.753277897834777832e-01,5.670366883277893066e-01,7.961406111717224121e-01,5.440713763236999512e-01,7.731382846832275391e-01,6.519970297813415527e-01,8.866189122200012207e-01,6.640145182609558105e-01,9.039940237998962402e-01,-1.770274043083190918e-01,5.402490869164466858e-02,-1.773542016744613647e-01,6.685672700405120850e-02,-9.352964162826538086e-01,-7.045964002609252930e-01,-9.287821054458618164e-01,-6.983469128608703613e-01,-8.917703032493591309e-01,-6.642012000083923340e-01,-8.888214230537414551e-01,-6.594139933586120605e-01,-2.717032134532928467e-01,-3.508196026086807251e-02,-2.607781887054443359e-01,-3.214947879314422607e-02,3.913828134536743164e-01,6.193966865539550781e-01,4.072057902812957764e-01,6.371328234672546387e-01
+-5.730846881866455078e+00,5.732888221740722656e+00,5.783724784851074219e+00,5.792895793914794922e+00,5.942165851593017578e+00,5.918948173522949219e+00,5.991724014282226562e+00,5.966567039489746094e+00,5.864411830902099609e+00,5.895424842834472656e+00,5.900958061218261719e+00,5.939421176910400391e+00,5.625113010406494141e+00,5.680572986602783203e+00,5.680912017822265625e+00,5.727231025695800781e+00,5.776460170745849609e+00,5.717628002166748047e+00,5.711870193481445312e+00,5.656649112701416016e+00,5.302338123321533203e+00,5.266580104827880859e+00,5.351602077484130859e+00,5.316702842712402344e+00,5.278736114501953125e+00,5.282595157623291016e+00,5.337553977966308594e+00,5.337523937225341797e+00,5.189167022705078125e+00,5.248756885528564453e+00,5.149240970611572266e+00,5.204926013946533203e+00,4.547395229339599609e+00,4.592474937438964844e+00,4.506534099578857422e+00,4.550676822662353516e+00,4.547453880310058594e+00,4.547401905059814453e+00,4.589041233062744141e+00,4.588669776916503906e+00,4.521498203277587891e+00,4.463822841644287109e+00,4.561392784118652344e+00,4.505622863769531250e+00
+--1.013100981712341309e+00,-1.041568040847778320e+00,-7.725502252578735352e-01,-7.695090174674987793e-01,-9.923346042633056641e-01,-9.783111214637756348e-01,-7.552248835563659668e-01,-7.544353008270263672e-01,-9.814441204071044922e-01,-9.959983825683593750e-01,-7.628129124641418457e-01,-7.584363222122192383e-01,-1.056246995925903320e+00,-1.013576984405517578e+00,-7.871043086051940918e-01,-7.787157297134399414e-01,-7.780430912971496582e-01,-7.713062763214111328e-01,-1.058465957641601562e+00,-1.036638021469116211e+00,-1.012316942214965820e+00,-1.011265039443969727e+00,-7.759013772010803223e-01,-7.669630050659179688e-01,-1.017753958702087402e+00,-1.008594036102294922e+00,-7.696496248245239258e-01,-7.772780060768127441e-01,-7.961946725845336914e-01,-7.946755886077880859e-01,-9.889832735061645508e-01,-1.005071997642517090e+00,-7.789592742919921875e-01,-7.715870738029479980e-01,-1.000466942787170410e+00,-9.999114871025085449e-01,-1.008129954338073730e+00,-1.004192948341369629e+00,-7.749366164207458496e-01,-7.727544903755187988e-01,-9.873229861259460449e-01,-9.964801073074340820e-01,-7.658882737159729004e-01,-7.630540132522583008e-01
+diff --git a/optimization/data/velodyne_yaml_dump.yaml b/optimization/data/velodyne_yaml_dump.yaml
+deleted file mode 100644
+index 359c99e..0000000
+--- a/optimization/data/velodyne_yaml_dump.yaml
++++ /dev/null
+@@ -1,44 +0,0 @@
+-- {x: -0.36696869134902954, y: 5.730846881866455, z: -1.0131009817123413}
+-- {x: -0.13490140438079834, y: 5.732888221740723, z: -1.0415680408477783}
+-- {x: -0.36784660816192627, y: 5.783724784851074, z: -0.7725502252578735}
+-- {x: -0.1335339993238449, y: 5.792895793914795, z: -0.7695090174674988}
+-- {x: 0.20602549612522125, y: 5.942165851593018, z: -0.9923346042633057}
+-- {x: 0.4527857005596161, y: 5.918948173522949, z: -0.9783111214637756}
+-- {x: 0.20001870393753052, y: 5.991724014282227, z: -0.755224883556366}
+-- {x: 0.4370078146457672, y: 5.966567039489746, z: -0.7544353008270264}
+-- {x: -1.2349790334701538, y: 5.8644118309021, z: -0.9814441204071045}
+-- {x: -1.0067329406738281, y: 5.895424842834473, z: -0.9959983825683594}
+-- {x: -1.2662450075149536, y: 5.900958061218262, z: -0.7628129124641418}
+-- {x: -1.0334999561309814, y: 5.9394211769104, z: -0.7584363222122192}
+-- {x: -1.194053053855896, y: 5.625113010406494, z: -1.0562469959259033}
+-- {x: -0.9620708227157593, y: 5.680572986602783, z: -1.0135769844055176}
+-- {x: -1.1971850395202637, y: 5.680912017822266, z: -0.7871043086051941}
+-- {x: -0.9753277897834778, y: 5.727231025695801, z: -0.7787157297134399}
+-- {x: 0.5670366883277893, y: 5.77646017074585, z: -0.7780430912971497}
+-- {x: 0.7961406111717224, y: 5.717628002166748, z: -0.7713062763214111}
+-- {x: 0.5440713763237, y: 5.711870193481445, z: -1.0584659576416016}
+-- {x: 0.7731382846832275, y: 5.656649112701416, z: -1.0366380214691162}
+-- {x: 0.6519970297813416, y: 5.302338123321533, z: -1.0123169422149658}
+-- {x: 0.8866189122200012, y: 5.266580104827881, z: -1.0112650394439697}
+-- {x: 0.6640145182609558, y: 5.351602077484131, z: -0.7759013772010803}
+-- {x: 0.9039940237998962, y: 5.316702842712402, z: -0.766963005065918}
+-- {x: -0.1770274043083191, y: 5.278736114501953, z: -1.0177539587020874}
+-- {x: 0.05402490869164467, y: 5.282595157623291, z: -1.008594036102295}
+-- {x: -0.17735420167446136, y: 5.337553977966309, z: -0.7696496248245239}
+-- {x: 0.06685672700405121, y: 5.337523937225342, z: -0.7772780060768127}
+-- {x: -0.9352964162826538, y: 5.189167022705078, z: -0.7961946725845337}
+-- {x: -0.7045964002609253, y: 5.2487568855285645, z: -0.7946755886077881}
+-- {x: -0.9287821054458618, y: 5.149240970611572, z: -0.9889832735061646}
+-- {x: -0.6983469128608704, y: 5.204926013946533, z: -1.005071997642517}
+-- {x: -0.8917703032493591, y: 4.5473952293396, z: -0.7789592742919922}
+-- {x: -0.6642012000083923, y: 4.592474937438965, z: -0.771587073802948}
+-- {x: -0.8888214230537415, y: 4.506534099578857, z: -1.0004669427871704}
+-- {x: -0.6594139933586121, y: 4.5506768226623535, z: -0.9999114871025085}
+-- {x: -0.27170321345329285, y: 4.547453880310059, z: -1.0081299543380737}
+-- {x: -0.03508196026086807, y: 4.5474019050598145, z: -1.0041929483413696}
+-- {x: -0.26077818870544434, y: 4.589041233062744, z: -0.7749366164207458}
+-- {x: -0.032149478793144226, y: 4.588669776916504, z: -0.7727544903755188}
+-- {x: 0.3913828134536743, y: 4.521498203277588, z: -0.987322986125946}
+-- {x: 0.6193966865539551, y: 4.463822841644287, z: -0.9964801073074341}
+-- {x: 0.4072057902812958, y: 4.561392784118652, z: -0.7658882737159729}
+-- {x: 0.6371328234672546, y: 4.505622863769531, z: -0.7630540132522583}
+diff --git a/optimization/src/server.py b/optimization/src/server.py
+index 0dcbbb2..a2fb9d0 100755
+--- a/optimization/src/server.py
++++ b/optimization/src/server.py
+@@ -74,7 +74,6 @@ class optimizer_node():
+ 
+         # Service call receiver
+         s = rospy.Service('/optimizer/optimize', SendPatterns, self.optimize)
+-        print("A1")
+ 
+         # ROS parameters
+         rospy.set_param("~calibration_mode", 3)
+@@ -84,7 +83,6 @@ class optimizer_node():
+         rospy.set_param("~visualise", True)
+         rospy.set_param("~reordering", 'based_on_reference_sensor') #Either 'based_on_reference_sensor' or 'based_on_definition'
+         rospy.set_param("~outlier_removal", 'remove_board_locations')
+-        print("A2")
+ 
+         # spin() keeps Python from exiting until node is shutdown
+         rospy.spin()
+@@ -109,11 +107,9 @@ class optimizer_node():
+         outlier_removal_method = rospy.get_param("~outlier_removal")
+ 
+         # Convert ROS service call to sensors struct
+-        print("aqui")
+         sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
+-        print("hola")
++
+         if export_detections_to_files:
+-            print("Entro")
+             # Define folder to save CSV and YAML files with detections
+             save_folder = os.path.join(pkg_dir, 'data')
+             # Save as CSV
+@@ -125,13 +121,11 @@ class optimizer_node():
+         Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, save_folder_yaml)
+ 
+         # Send back response
+-        print("A3")
+         return SendPatternsResponse()
+ 
+     def convert_service_to_sensors_struct(self, req, correspondences, reference_sensor, reordering_method, outlier_removal_method):
+         # For debugging: print service call message
+         if False:
+-            print("A4")
+             print_service_call_message(req)
+ 
+         # Retrieve numpy arrays
+@@ -144,22 +138,21 @@ class optimizer_node():
+             # This means that for instance a lidar should contain lidar in the topic name
+             if 'stereo' in sensor_topic_type:
+                 Xc = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('camera'))
+-                print("A4")
++
+                 # Convert to sensor struct:
+                 sensor = get_camera(Xc)
+             elif 'mono' in sensor_topic_type:
+                 Xc = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('camera'))
+-                print("A5")
++
+                 # Convert to sensor struct:
+                 sensor = get_camera(Xc)
+             elif 'lidar' in sensor_topic_type:
+                 Xl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('lidar'))
+-                print("A6")
++
+                 # Convert to sensor struct:
+                 sensor = get_lidar(Xl)
+             elif 'radar' in sensor_topic_type:
+                 pcl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('radar'))
+-                print("A7")
+                 # the third axis will be zero for 2D radars
+                 if np.all(pcl[2, :] == 0):
+                     Xr = pcl[:2, :]
+@@ -170,14 +163,12 @@ class optimizer_node():
+                 # Setup sensors struct
+                 sensor = get_radar(Xr, None)
+             else:
+-                print("A8")
+                 raise ValueError('ROS topic name should contain one the the four keywords: stereo, mono, lidar, radar')
+ 
+             # Get sensor link from ROS service call
+             for i in range(len(req.accumulated_patterns[i_sensor].patterns)):
+                 # Get frame_id
+                 frame_id = req.accumulated_patterns[i_sensor].patterns[i].header.frame_id
+-                print("A9")
+                 if frame_id:  # If frame id is not empty
+                     sensor.link = frame_id  # Link name is derived from frame_id message
+                     sensor.name = sensor.link  # Name of the sensor is set to link name
+@@ -188,16 +179,13 @@ class optimizer_node():
+             sensors.append(sensor)
+         
+         # Get nr calibration boards in this recording
+-        print("B1")
+         nr_calib_boards = int(len(sensors[0].mu) / get_nr_detection(sensors[0].type))
+ 
+         # Outlier removal
+-        print("B2")
+         sensors, nr_calib_boards = remove_outlier_detections(sensors, nr_calib_boards, outlier_removal_method)
+ 
+         # Reorder detections
+         try:
+-            print("B3")
+             sensors = reorder_detections_sensors(sensors, reordering_method, reference_sensor)
+         except ValueError as msg_value_error:
+             print('----------------------------------------------------------')
+@@ -208,15 +196,14 @@ class optimizer_node():
+ 
+             # Pick sensor as reference sensor for reindexing:
+             for i in range(len(sensors)):
+-                print("B4")
+-                if sensors[i].type != 'radar':
++                if sensors[i].type is not 'radar':
+                     index_reference_sensor = i
+                     break
+             # Remove all non visible detections in reference sensors such that we can reorder based on that
+             sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
+             # Retry reordering based on reindex using reference sensor
+             sensors = reorder_detections_sensors(sensors, 'based_on_reference_sensor', sensors[index_reference_sensor].name)
+-        print("B5")
++        
+         return sensors, nr_calib_boards
+     
+ if __name__ == "__main__":
+diff --git a/radar_detector/CMakeLists.txt b/radar_detector/CMakeLists.txt
+index 0261284..c9237af 100644
+--- a/radar_detector/CMakeLists.txt
++++ b/radar_detector/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ cmake_minimum_required(VERSION 2.8.3)
+ project(radar_detector)
+ 
+-set (CMAKE_CXX_STANDARD 14)
++set (CMAKE_CXX_STANDARD 11)
+ 
+ find_package(catkin REQUIRED
+ 	cmake_modules
+@@ -10,6 +10,7 @@ find_package(catkin REQUIRED
+ 	roscpp
+ 	sensor_msgs
+ 	visualization_msgs
++	radar_msgs
+ )
+ 
+ find_package(OpenCV REQUIRED)
+diff --git a/radar_detector/include/radar_detector/keypoint_detection.hpp b/radar_detector/include/radar_detector/keypoint_detection.hpp
+index f942d81..f1c5590 100644
+--- a/radar_detector/include/radar_detector/keypoint_detection.hpp
++++ b/radar_detector/include/radar_detector/keypoint_detection.hpp
+@@ -19,7 +19,8 @@
+ #pragma once
+ #include <pcl/point_cloud.h>
+ #include <pcl/point_types.h>
+-#include <sensor_msgs/PointCloud2.h>
++#include <radar_msgs/RadarDetectionArray.h>
++#include <radar_msgs/RadarDetection.h>
+ 
+ 
+ namespace radar_detector {
+@@ -28,7 +29,7 @@ namespace radar_detector {
+     const std::string SELECT_MAX =  "max";
+     const std::string SELECT_MIN =  "min";
+ 
+-pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in,
++pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in,
+                                 float const min = std::numeric_limits<float>::lowest(),
+                                 float const max = std::numeric_limits<float>::max(),
+                                 float const min_range = std::numeric_limits<float>::lowest(),
+diff --git a/radar_detector/include/radar_detector/node_lib.hpp b/radar_detector/include/radar_detector/node_lib.hpp
+index 036d950..a52a223 100644
+--- a/radar_detector/include/radar_detector/node_lib.hpp
++++ b/radar_detector/include/radar_detector/node_lib.hpp
+@@ -18,6 +18,7 @@
+ 
+ #pragma once
+ #include <ros/ros.h>
++#include <radar_msgs/RadarDetectionArray.h>
+ #include <pcl_ros/point_cloud.h>
+ 
+ namespace radar_detector {
+@@ -58,8 +59,9 @@ private:
+ 	void publishMarker(pcl::PointXYZ const & point, std_msgs::Header const & header);
+ 
+ 	/// Point cloud callback function
+-	void callback(const sensor_msgs::PointCloud2ConstPtr& in);
++	void callback(radar_msgs::RadarDetectionArray const & in);
+ 
+ };
+ 
++
+ }
+diff --git a/radar_detector/package.xml b/radar_detector/package.xml
+index fb57046..5765aa1 100644
+--- a/radar_detector/package.xml
++++ b/radar_detector/package.xml
+@@ -16,5 +16,6 @@
+ 	<depend>roscpp</depend>
+ 	<depend>sensor_msgs</depend>
+ 	<depend>visualization_msgs</depend>
++	<depend>radar_msgs</depend>
+ 
+ </package>
+diff --git a/radar_detector/src/lib/keypoint_detection.cpp b/radar_detector/src/lib/keypoint_detection.cpp
+index 388c7cc..7c42b7e 100644
+--- a/radar_detector/src/lib/keypoint_detection.cpp
++++ b/radar_detector/src/lib/keypoint_detection.cpp
+@@ -16,29 +16,23 @@
+   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#include <sensor_msgs/point_cloud2_iterator.h>
+ #include "keypoint_detection.hpp"
+ 
+ 
+ namespace radar_detector {
+ 
+-pcl::PointXYZ keypointDetection(const sensor_msgs::PointCloud2ConstPtr& in, float const min, float const max,
++pcl::PointXYZ keypointDetection(radar_msgs::RadarDetectionArray const & in, float const min, float const max,
+                                         float const min_range, float const max_range,
+                                         bool const select_range, bool const select_min) {
+-pcl::PointXYZ point;
+-	float best_candidate_value = select_min ? std::numeric_limits<float>::max() : std::numeric_limits<float>::lowest();
+-
+-	std::size_t n_points = (*in).width;
+-	sensor_msgs::PointCloud2ConstIterator<float> iter_x(*in, "x");
+-	sensor_msgs::PointCloud2ConstIterator<float> iter_y(*in, "y");
+-	sensor_msgs::PointCloud2ConstIterator<float> iter_z(*in, "z");
+-	sensor_msgs::PointCloud2ConstIterator<float> iter_rcs(*in, "RCS");
+-	for (std::size_t i = 0; i < n_points; ++i, ++iter_x, ++iter_y, ++iter_z, ++iter_rcs) {
+-	
+-		float x = *iter_x;
+-		float y = *iter_y;
+-		float range = sqrt(x*x + y*y); // compute range using x and y
+-		float rcs = *iter_rcs; // RCS value
++	pcl::PointXYZ point;
++	float best_candidate_value = select_min ? std::numeric_limits<float>::max():std::numeric_limits<float>::lowest();
++	std::vector<radar_msgs::RadarDetection> vector_detections = in.detections;
++	for (auto detection:vector_detections) {
++
++		float x = detection.position.x;
++		float y = detection.position.y;
++		float range = sqrt(x*x+y*y); // compute range using x and y
++		float rcs = detection.amplitude; // RCS value
+ 		// select the best candidate either based on range or on rcs
+ 		float selection = select_range ? range : rcs;
+ 		// the best candidate can be either the lowest or the highest value
+@@ -47,7 +41,7 @@ pcl::PointXYZ point;
+ 			best_candidate_value = selection;
+ 			point.x = x;
+ 			point.y = y;
+-			point.z = *iter_z;
++			point.z = detection.position.z;
+ 		}
+ 	}
+ 	return point;
+diff --git a/radar_detector/src/lib/node_lib.cpp b/radar_detector/src/lib/node_lib.cpp
+index 6d0c268..48c5ebe 100644
+--- a/radar_detector/src/lib/node_lib.cpp
++++ b/radar_detector/src/lib/node_lib.cpp
+@@ -88,7 +88,7 @@ visualization_msgs::Marker toArc(pcl::PointXYZ const & point, std_msgs::Header c
+ 		// Store point
+ 		marker.points.push_back(toRos(t));
+ 	}
+-	
++
+ 	marker.color.a = 1.0;
+ 	marker.color.r = 0.0;
+ 	marker.color.g = 1.0;
+@@ -157,7 +157,7 @@ RadarDetectorNode::RadarDetectorNode(ros::NodeHandle & nh) :
+                          << " or " << radar_detector::SELECT_MAX << " (current value: " << selection_criterion <<  ")");
+         initialization_errors = true;
+ 	}
+-	
++
+ 	if(initialization_errors)
+ 	{
+ 	    throw std::exception();
+@@ -169,15 +169,15 @@ RadarDetectorNode::RadarDetectorNode(ros::NodeHandle & nh) :
+ 	ROS_INFO("Initialized radar detector.");
+ }
+ 
+-void RadarDetectorNode::callback(const sensor_msgs::PointCloud2ConstPtr& in) {
++void RadarDetectorNode::callback(radar_msgs::RadarDetectionArray const & in) {
+ 	ROS_INFO_ONCE("Receiving radar messages.");
+ 	// Find reflection of calibration board
+ 	pcl::PointXYZ point = keypointDetection(in, min_RCS_, max_RCS_,min_range_object_, max_range_object_, select_range_, select_min_);
+ 
+ 	// Publish results if detected point is valid (so not in origin of sensor)
+ 	if (isValidDetection(point)) {
+-		publishMarker(point, (*in).header);
+-		publishPattern(point, (*in).header);
++		publishMarker(point, in.header);
++		publishPattern(point, in.header);
+ 	}
+ }
+ 
+diff --git a/stereo_detector/config/config.yaml b/stereo_detector/config/config.yaml
+index ff278f0..d95cac1 100644
+--- a/stereo_detector/config/config.yaml
++++ b/stereo_detector/config/config.yaml
+@@ -5,10 +5,10 @@ canny:                                 # Canny edge detection parameters
+     min: 100
+     max: 120
+ roi:                                   # ROI for detecting circles
+-    x: 50
+-    y: 10
+-    width: 750
+-    height: 780
++    x: 0
++    y: 800
++    width: 1936
++    height: 400
+ plane_filter:                          # Get plane of calibration boaard
+     threshold: 0.1
+     eps_angle: 0.35
+@@ -22,7 +22,7 @@ circle_detection:                      # Parameters to fit circles in pointcloud
+     radius_max_points: 0.05            # Circle radius to count number of points
+     max_points_within_radius: 1000000  # Maximum nr of points to be allowed within radius (radius_max_points), which determines if circle proposal is valid.
+ plane_distance: 0.1
+-visualize: true
++visualize: false
+ refinement:                            # Refinement of circle centers by performing a least square fit based on all 4 detections. If refine = false, individual circle center detections are returned.
+     refine: false                       # If yes, return least square fit based on 3 or 4 detections. If no returns, individual detections.
+     width: 0.24                        # width: distance between circle centers
+diff --git a/stereo_detector/src/cli.cpp b/stereo_detector/src/cli.cpp
+index fb112f8..0ce9174 100644
+--- a/stereo_detector/src/cli.cpp
++++ b/stereo_detector/src/cli.cpp
+@@ -84,7 +84,7 @@ int main(int argc, char * * argv) {
+ 	}
+ 
+ 	// Load image
+-	cv::Mat image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
++	cv::Mat image = cv::imread(image_file, CV_LOAD_IMAGE_GRAYSCALE);
+ 	if (image.empty()) {
+ 		std::cout << "Could not open file: '" << image_file << "'." << std::endl;
+ 		return 1;
+diff --git a/stereo_detector/src/lib/keypoint_detection.cpp b/stereo_detector/src/lib/keypoint_detection.cpp
+index f59ac0e..cfb2891 100644
+--- a/stereo_detector/src/lib/keypoint_detection.cpp
++++ b/stereo_detector/src/lib/keypoint_detection.cpp
+@@ -17,7 +17,6 @@
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+ 
+-#include <ros/ros.h>
+ #include "keypoint_detection.hpp"
+ #include <pcl/segmentation/sac_segmentation.h>
+ #include <pcl/sample_consensus/model_types.h>
+@@ -83,7 +82,7 @@ pcl::PointCloud<pcl::PointXYZRGB> crop(pcl::PointCloud<pcl::PointXYZRGB> const &
+ 
+ /// Visualize the image based region-of-interest
+ void drawRoi(cv::Mat const & image, cv::Rect const & roi) {
+-	cv::namedWindow("roi", cv::WINDOW_NORMAL);
++	cv::namedWindow("roi", CV_WINDOW_NORMAL);
+ 	cv::Mat draw = image.clone();
+ 	if (draw.channels() == 1) {
+ 		cv::cvtColor(draw, draw, cv::COLOR_GRAY2BGR);
+@@ -397,11 +396,12 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
+ 	}
+ 	cv::Mat image_roi = image(config.roi);
+ 	pcl::PointCloud<pcl::PointXYZRGB> cloud_roi = crop(cloud, config.roi);
++
+ 	// Edge detection in image left
+ 	cv::Mat edge_image;
+ 	cv::Canny(image_roi, edge_image, config.canny.min, config.canny.max);
+ 	if (config.visualize) {
+-		cv::namedWindow("image", cv::WINDOW_NORMAL);
++		cv::namedWindow("image", CV_WINDOW_NORMAL);
+ 		cv::imshow("image", edge_image);
+ 		cv::waitKey();
+ 	}
+@@ -413,17 +413,23 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
+ 
+ 	// Extract pointcloud with edges
+ 	pcl::PointCloud<pcl::PointXYZRGB> edge_cloud = keep(edge_image, cloud_roi, config.visualize);
++
+ 	// Segment points close to plane
+ 	edge_cloud = segmentPlane(*cam_plane_coeffs, edge_cloud, config.plane_distance);
++
+ 	// Apply a passthrough filter to remove points
+ 	edge_cloud = passThrough(edge_cloud, config.pass_through_filter);
++
+ 	// Project edge_cloud on plane
+ 	projectOnPlane(edge_cloud, cam_plane_coeffs);
++
+ 	// Get rotation which is required for 2D fitting
+ 	Eigen::Affine3d rotation = getRotation(*cam_plane_coeffs);
++
+ 	// Transform edge point cloud to xy plane
+ 	pcl::PointCloud<pcl::PointXYZRGB> edge_cloud_xy;
+ 	pcl::transformPointCloud(edge_cloud, edge_cloud_xy, rotation);
++
+ 	// Two-dimensional circle fitting of remaining point cloud
+ 	pcl::PointCloud<pcl::PointXYZRGB> circles = processCircles(
+ 		edge_cloud_xy,
+@@ -435,16 +441,20 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
+ 		config.circle_detection.radius_max_points,
+ 		config.circle_detection.max_points_within_radius
+ 	);
++
+ 	// Rotate resulting point cloud back to original frame
+ 	pcl::transformPointCloud(circles, circles, rotation.inverse());
++
+ 	// Visualize circles optionally
+ 	if (config.visualize) {
+ 		pclVisualizeCircles(passThrough(edge_cloud, config.pass_through_filter), circles);
+ 	}
++
+ 	// Refine circle centers using calibration board geometry
+ 	if (config.refinement.refine) {
+ 		circles = refinement(circles, config);
+ 	}
++
+ 	return circles;
+ }
+ 
+diff --git a/stereo_detector/src/lib/node_lib.cpp b/stereo_detector/src/lib/node_lib.cpp
+index 50b4cb8..922b936 100644
+--- a/stereo_detector/src/lib/node_lib.cpp
++++ b/stereo_detector/src/lib/node_lib.cpp
+@@ -34,60 +34,20 @@
+ namespace stereo_detector {
+ 
+ namespace {
+-	cv::Mat toOpencv(const sensor_msgs::Image& in, const std::string& topic_name) {
++	cv::Mat toOpencv(const sensor_msgs::Image & in) {
+ 		cv_bridge::CvImagePtr cv_ptr;
+-
+-		try {
+-			// Imprimir el tópico
+-			
+-
+-			// Convertir la imagen
+-			cv_ptr = cv_bridge::toCvCopy(in);
+-
+-			// Verificar tipo de imagen y dimensiones
+-			//int image_type = cv_ptr->image.type();
+-			
+-
+-			/*// Guardar la imagen para depuración
+-			
+-			
+-
+-			// Validar tipo de imagen y convertir si es necesario
+-			if (image_type == CV_8UC1) {
+-				ROS_INFO("Converting grayscale image to color.");
+-				cv::cvtColor(cv_ptr->image, cv_ptr->image, cv::COLOR_GRAY2BGR);
+-			} else if (image_type == CV_16UC1) {
+-				ROS_INFO("Processing image from topic: %s", topic_name.c_str());
+-				
+-				ROS_INFO("Saved image to /tmp/debug_image_before_error.png");
+-				cv::imwrite("/tmp/debug_image_before_error.png", cv_ptr->image);
+-				ROS_INFO("Normalizing disparity image.");
+-				cv::Mat disparity_normalized;
+-				cv_ptr->image.convertTo(disparity_normalized, CV_32F, 1.0 / 256.0);
+-				disparity_normalized.convertTo(cv_ptr->image, CV_8UC1, 255.0);
+-			} else if (image_type == CV_8UC3) {
+-				ROS_INFO("Image is already in color.");
+-			} else {
+-				ROS_ERROR("Unexpected image type encountered: %d", image_type);
+-				return cv::Mat();
+-			}*/
+-
+-			return cv_ptr->image;
+-
+-		} catch (cv_bridge::Exception& e) {
+-			ROS_ERROR("Error converting image from topic: %s, reason: %s", topic_name.c_str(), e.what());
+-			return cv::Mat();
+-		}
++		cv_ptr = cv_bridge::toCvCopy(in);
++		return cv_ptr->image;
+ 	}
+ 
+-	visualization_msgs::Marker toMarker(pcl::PointXYZRGB const& point, std_msgs::Header const& header) {
++	visualization_msgs::Marker toMarker(pcl::PointXYZRGB const & point, std_msgs::Header const & header) {
+ 		visualization_msgs::Marker marker;
+ 		marker.header = header;
+ 		marker.action = visualization_msgs::Marker::ADD;
+ 		marker.type = visualization_msgs::Marker::SPHERE;
+-		marker.color.r = (float)std::rand() / RAND_MAX;
+-		marker.color.g = (float)std::rand() / RAND_MAX;
+-		marker.color.b = (float)std::rand() / RAND_MAX;
++		marker.color.r = (float) std::rand()/RAND_MAX;
++		marker.color.g = (float) std::rand()/RAND_MAX;
++		marker.color.b = (float) std::rand()/RAND_MAX;
+ 		marker.color.a = 1.0;
+ 		marker.pose.position.x = point.x;
+ 		marker.pose.position.y = point.y;
+@@ -99,22 +59,22 @@ namespace {
+ 		return marker;
+ 	}
+ 
+-	visualization_msgs::MarkerArray toMarkers(pcl::PointCloud<pcl::PointXYZRGB> const& pattern, std_msgs::Header const& header) {
++	visualization_msgs::MarkerArray toMarkers(pcl::PointCloud<pcl::PointXYZRGB> const & pattern, std_msgs::Header const & header) {
+ 		visualization_msgs::MarkerArray markers;
+ 		for (std::size_t i = 0; i < pattern.size(); ++i) {
+-			auto marker = toMarker(pattern.at(i), header);
+-			marker.id = i;
++		    auto marker = toMarker(pattern.at(i), header);
++		    marker.id = i;
+ 			markers.markers.push_back(marker);
+ 		}
+ 		return markers;
+ 	}
+ 
+ 	pcl::PointCloud<pcl::PointXYZRGB> toCloud(
+-		cv::Mat const& image,
+-		sensor_msgs::CameraInfoConstPtr const& left_camera_info,
+-		sensor_msgs::CameraInfoConstPtr const& right_camera_info,
+-		cv::Mat const& disparity
+-	) {
++		cv::Mat const & image,
++		sensor_msgs::CameraInfoConstPtr const & left_camera_info,
++		sensor_msgs::CameraInfoConstPtr const & right_camera_info,
++		cv::Mat const & disparity
++) {
+ 		// Get 3d locations
+ 		image_geometry::StereoCameraModel model;
+ 		model.fromCameraInfo(left_camera_info, right_camera_info);
+@@ -145,8 +105,8 @@ namespace {
+ 
+ }
+ 
+-StereoDetectorNode::StereoDetectorNode(ros::NodeHandle& nh)
+-	:
++StereoDetectorNode::StereoDetectorNode(ros::NodeHandle & nh)
++:
+ 	nh_(nh),
+ 	image_subscriber_(nh_, "/ueye/left/image_rect_color", 1),
+ 	left_camera_info_subscriber_(nh_, "/ueye/left/camera_info", 1),
+@@ -154,6 +114,7 @@ StereoDetectorNode::StereoDetectorNode(ros::NodeHandle& nh)
+ 	disparity_subscriber_(nh_, "/ueye/disparity", 1),
+ 	sync_(image_subscriber_, left_camera_info_subscriber_, right_camera_info_subscriber_, disparity_subscriber_, 10)
+ {
++
+ 	ROS_INFO("Initialized stereo detector.");
+ 
+ 	// Load configuration from file
+@@ -162,7 +123,7 @@ StereoDetectorNode::StereoDetectorNode(ros::NodeHandle& nh)
+ 	config_ = YAML::LoadFile(yaml_file).as<stereo_detector::Configuration>();
+ 
+ 	// Setup subscriber and publisher
+-	point_cloud_publisher_ = nh_.advertise<sensor_msgs::PointCloud2>("stereo_pattern", 100);
++	point_cloud_publisher_  = nh_.advertise<sensor_msgs::PointCloud2>("stereo_pattern", 100);
+ 	sphere_marker_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("stereo_pattern_markers", 100);
+ 
+ 	// Get synchronized image and point cloud
+@@ -170,59 +131,31 @@ StereoDetectorNode::StereoDetectorNode(ros::NodeHandle& nh)
+ }
+ 
+ void StereoDetectorNode::callback(
+-	sensor_msgs::ImageConstPtr const& image,
+-	sensor_msgs::CameraInfoConstPtr const& left_camera_info,
+-	sensor_msgs::CameraInfoConstPtr const& right_camera_info,
+-	stereo_msgs::DisparityImageConstPtr const& disparity
++	sensor_msgs::ImageConstPtr const & image,
++	sensor_msgs::CameraInfoConstPtr const & left_camera_info,
++	sensor_msgs::CameraInfoConstPtr const & right_camera_info,
++	stereo_msgs::DisparityImageConstPtr const & disparity
+ ) {
+-	// Registrar el nombre del frame y del tópico
+-	ROS_INFO("Processing frame from: %s", image->header.frame_id.c_str());
+-	ROS_INFO("Processing message from topic: %s", image_subscriber_.getTopic().c_str());
+-
+-	// Convertir la imagen a OpenCV
+-	cv::Mat cv_image = toOpencv(*image, image_subscriber_.getTopic());
+-
+-	// Validar que la imagen no esté vacía
+-	if (cv_image.empty()) {
+-		ROS_WARN("Input image is empty. Skipping frame.");
+-		return;
+-	}
+-
+-	// Validar dimensiones de la imagen
+-	if (cv_image.rows <= 0 || cv_image.cols <= 0) {
+-		ROS_WARN("Invalid image dimensions: rows=%d, cols=%d", cv_image.rows, cv_image.cols);
+-		return;
+-	}
++	// convert cloud
++	ROS_INFO_ONCE("Receiving synchronized rectified image, camera info and disparity image.");
++	try {
+ 
+-	// Mostrar la imagen en pantalla
+-	cv::imshow("Input Image", cv_image);
+-	cv::waitKey(1);
++		pcl::PointCloud<pcl::PointXYZRGB> cloud = toCloud(toOpencv(*image), left_camera_info, right_camera_info, toOpencv(disparity->image));
+ 
+-	// Convertir la imagen a nube de puntos
+-	try {
+-		cv::Mat disparity_image = toOpencv(disparity->image, "/ueye/disparity");
+-		int image_type = disparity_image.type();
+-		//ROS_INFO("Image type: %d, dimensions: [%d x %d]", image_type, disparity->image->image.rows, disparity->image->image.cols);
+-		ROS_INFO("Image type: %d, dimensions: [%d x %d]", image_type, disparity_image.rows, disparity_image.cols);
+-		pcl::PointCloud<pcl::PointXYZRGB> cloud = toCloud(cv_image, left_camera_info, right_camera_info, disparity_image);
+-		ROS_INFO("A");
+-
+-		// Procesar y publicar resultados
+-		pcl::PointCloud<pcl::PointXYZRGB> processed = keypointDetection(cv_image, cloud, config_);
+-		ROS_INFO("B");
++		// process
++		pcl::PointCloud<pcl::PointXYZRGB> processed = keypointDetection(
++			toOpencv(*image),
++			cloud,
++			config_
++		);
+ 		sensor_msgs::PointCloud2 out;
+-        pcl::toROSMsg(processed, out);
+-		ROS_INFO("C");
+-        out.header = image->header;
+-        point_cloud_publisher_.publish(out);
+-		ROS_INFO("D");
+-        sphere_marker_publisher_.publish(toMarkers(processed, image->header));
+-		ROS_INFO("E");
+-    } catch (std::exception & e) {
+-        ROS_ERROR("Error processing frame from topic: %s, reason: %s", image_subscriber_.getTopic().c_str(), e.what());
+-    }
++		pcl::toROSMsg(processed, out);
++		out.header = image->header;
++		point_cloud_publisher_.publish(out);
++		sphere_marker_publisher_.publish(toMarkers(processed, image->header));
++	} catch (std::exception & e) {
++		ROS_INFO_ONCE("Ignoring exceptions in at least one frame. Reason: %s", e.what());
++	}
+ }
+ 
+-
+-
+ }

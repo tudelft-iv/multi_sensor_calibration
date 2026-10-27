@@ -1,0 +1,45 @@
+<launch>
+
+    <!-- Lidar Detector -->
+    <node pkg="multi_sensor_calibration" type="lidar_detector" name="lidar_detector_node" output="screen">
+        <remap from="/velodyne_points" to="/velodyne_points"/>
+        <remap from="/lidar_pattern" to="/lidar_pattern"/>
+        <remap from="/lidar_pattern_markers" to="/lidar_pattern_markers"/>
+    </node>
+
+    <!-- Radar Detector
+    <node pkg="multi_sensor_calibration" type="radar_detector" name="radar_detector_node" output="screen">
+        <remap from="/radar_converter/detections" to="/radar_converter/detections"/>
+        <remap from="/radar_pattern" to="/radar_pattern"/>
+        <remap from="/radar_marker" to="/radar_marker"/>
+    </node>-->
+
+    <!-- Stereo Detector -->
+    <node pkg="multi_sensor_calibration" type="stereo_detector" name="stereo_detector_node" output="screen">
+        <remap from="/ueye/left/image_rect_color" to="/zed/zed_node/left/image_rect_color"/>
+        <remap from="/ueye/left/camera_info" to="/zed/zed_node/left/camera_info"/>
+        <remap from="/ueye/right/image_rect_color" to="/zed/zed_node/right/image_rect_color"/>
+        <remap from="/ueye/right/camera_info" to="/zed/zed_node/right/camera_info"/>
+        <remap from="/stereo_pattern" to="/stereo_pattern"/>
+        <remap from="/stereo_pattern_markers" to="/stereo_pattern_markers"/>
+    </node>
+
+    <!-- Monocular Detector flir-->
+    <node pkg="multi_sensor_calibration" type="mono_detector" name="mono_detector_node" output="screen">
+        <remap from="/flir_a65_camera/image_rect_color" to="/phm/thermal_camera/image"/>
+        <remap from="/flir_a65_camera/camera_info" to="/phm/thermal_camera/camera_info"/>
+        <remap from="/mono_pattern_flir" to="/mono_pattern_flir"/>
+    </node>
+
+    <!-- Accumulator -->
+    <node pkg="multi_sensor_calibration" type="accumulator" name="accumulator_node" output="screen">
+        <remap from="/accumulator/toggle_accumulate" to="/accumulator/toggle_accumulate"/>
+    </node>
+
+    <!-- Optimizer -->
+    <node pkg="multi_sensor_calibration" type="server.py" name="optimizer_node" output="screen">
+        <param name="calibration_mode" value="FCPE"/>
+        <param name="reference_sensor" value="velodyne"/>
+    </node>
+
+</launch>

@@ -1,0 +1,72 @@
+# Parámetros de segmentación del plano dominante (tabla de calibración)
+plane:
+  distance_threshold: 0.03   # [m] umbral RANSAC para inliers
+  max_iterations: 2000
+  min_inliers: 300
+
+# Filtro de tamaño mínimo sobre los inliers del plano
+table:
+  min_points: 200
+
+# Visualización de la normal del plano detectado
+normal:
+  arrow_length: 0.3
+  scale_x: 0.01
+  scale_y: 0.02
+
+# Clustering euclidiano sobre el plano
+clustering:
+  tolerance: 0.04            # [m]
+  min_size: 30
+  max_size: 800
+
+# Caracterización de los agujeros circulares (dianas de calibración)
+circle:
+  min_radius: 0.06           # [m]
+  max_radius: 0.09           # [m]
+  alpha: 0.8                 # transparencia del marker
+
+
+# Tópicos ROS
+topics:
+  raw:   "/velodyne_points"                  # nube original (referencia)
+  input: "/interpolated_point_cloud"     # nube densa de entrada al detector
+
+# ── Región de interés angular (ROI) ──────────────────────────────────
+# El detector filtra la nube ANTES de RANSAC para quedarse solo con los
+# puntos cuyo ángulo azimutal (en el plano XY del sensor) esté dentro
+# del sector [azimuth_min_deg, azimuth_max_deg].
+# Convención: 0° = eje +X, 90° = eje +Y, ángulos en [-180, 180].
+# Ejemplo: frente del robot entre -30° y +30°.
+#
+# Para desactivar el filtro (usar toda la nube) poner:
+#   enabled: false
+roi:
+  enabled: true
+  azimuth_min_deg: -45.0     # [°] límite inferior del sector angular
+  azimuth_max_deg:  45.0     # [°] límite superior del sector angular
+  # Rango radial adicional (opcional): descarta puntos fuera de [min_range, max_range]
+  min_range: 0.3             # [m]  0.0 = sin límite inferior
+  max_range: 8.0             # [m]  0.0 = sin límite superior
+
+# ── Visualización en RViz ─────────────────────────────────────────────
+visualization:
+  # Marcador del sector angular ROI (arco + radios en el plano XY)
+  show_roi_sector: true
+  roi_sector_color_r: 0.2
+  roi_sector_color_g: 0.8
+  roi_sector_color_b: 0.2
+  roi_sector_alpha:   0.25
+  roi_sector_height:  0.05   # [m] grosor Z del marcador de sector
+
+  # Marcador de la normal del plano detectado (flecha)
+  show_plane_normal: true
+  normal_arrow_length: 0.35  # [m]
+  normal_scale_shaft:  0.01  # [m] diámetro del cilindro
+  normal_scale_head:   0.02  # [m] diámetro de la punta
+
+  # Marcadores de los círculos detectados (cilindros finos)
+  circle_color_r: 1.0
+  circle_color_g: 0.5
+  circle_color_b: 0.0
+  circle_thickness: 0.015    # [m] espesor Z del disco (scale.z del CYLINDER)

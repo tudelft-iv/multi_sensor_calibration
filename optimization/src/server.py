@@ -74,6 +74,7 @@ class optimizer_node():
 
         # Service call receiver
         s = rospy.Service('/optimizer/optimize', SendPatterns, self.optimize)
+        print("A1")
 
         # ROS parameters
         rospy.set_param("~calibration_mode", 3)
@@ -83,6 +84,7 @@ class optimizer_node():
         rospy.set_param("~visualise", True)
         rospy.set_param("~reordering", 'based_on_reference_sensor') #Either 'based_on_reference_sensor' or 'based_on_definition'
         rospy.set_param("~outlier_removal", 'remove_board_locations')
+        print("A2")
 
         # spin() keeps Python from exiting until node is shutdown
         rospy.spin()
@@ -107,9 +109,11 @@ class optimizer_node():
         outlier_removal_method = rospy.get_param("~outlier_removal")
 
         # Convert ROS service call to sensors struct
+        print("aqui")
         sensors, nr_calib_boards = self.convert_service_to_sensors_struct(req, correspondences, reference_sensor, reordering_method, outlier_removal_method)
-
+        print("hola")
         if export_detections_to_files:
+            print("Entro")
             # Define folder to save CSV and YAML files with detections
             save_folder = os.path.join(pkg_dir, 'data')
             # Save as CSV
@@ -121,11 +125,13 @@ class optimizer_node():
         Tms = joint_optimization(sensors, calibration_mode, correspondences, reference_sensor, visualise, save_folder_yaml)
 
         # Send back response
+        print("A3")
         return SendPatternsResponse()
 
     def convert_service_to_sensors_struct(self, req, correspondences, reference_sensor, reordering_method, outlier_removal_method):
         # For debugging: print service call message
         if False:
+            print("A4")
             print_service_call_message(req)
 
         # Retrieve numpy arrays
@@ -138,21 +144,22 @@ class optimizer_node():
             # This means that for instance a lidar should contain lidar in the topic name
             if 'stereo' in sensor_topic_type:
                 Xc = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('camera'))
-
+                print("A4")
                 # Convert to sensor struct:
                 sensor = get_camera(Xc)
             elif 'mono' in sensor_topic_type:
                 Xc = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('camera'))
-
+                print("A5")
                 # Convert to sensor struct:
                 sensor = get_camera(Xc)
             elif 'lidar' in sensor_topic_type:
                 Xl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('lidar'))
-
+                print("A6")
                 # Convert to sensor struct:
                 sensor = get_lidar(Xl)
             elif 'radar' in sensor_topic_type:
                 pcl = get_pcl_sensor(req.accumulated_patterns[i_sensor], get_nr_detection('radar'))
+                print("A7")
                 # the third axis will be zero for 2D radars
                 if np.all(pcl[2, :] == 0):
                     Xr = pcl[:2, :]
@@ -163,12 +170,14 @@ class optimizer_node():
                 # Setup sensors struct
                 sensor = get_radar(Xr, None)
             else:
+                print("A8")
                 raise ValueError('ROS topic name should contain one the the four keywords: stereo, mono, lidar, radar')
 
             # Get sensor link from ROS service call
             for i in range(len(req.accumulated_patterns[i_sensor].patterns)):
                 # Get frame_id
                 frame_id = req.accumulated_patterns[i_sensor].patterns[i].header.frame_id
+                print("A9")
                 if frame_id:  # If frame id is not empty
                     sensor.link = frame_id  # Link name is derived from frame_id message
                     sensor.name = sensor.link  # Name of the sensor is set to link name
@@ -179,13 +188,16 @@ class optimizer_node():
             sensors.append(sensor)
         
         # Get nr calibration boards in this recording
+        print("B1")
         nr_calib_boards = int(len(sensors[0].mu) / get_nr_detection(sensors[0].type))
 
         # Outlier removal
+        print("B2")
         sensors, nr_calib_boards = remove_outlier_detections(sensors, nr_calib_boards, outlier_removal_method)
 
         # Reorder detections
         try:
+            print("B3")
             sensors = reorder_detections_sensors(sensors, reordering_method, reference_sensor)
         except ValueError as msg_value_error:
             print('----------------------------------------------------------')
@@ -196,14 +208,15 @@ class optimizer_node():
 
             # Pick sensor as reference sensor for reindexing:
             for i in range(len(sensors)):
-                if sensors[i].type is not 'radar':
+                print("B4")
+                if sensors[i].type != 'radar':
                     index_reference_sensor = i
                     break
             # Remove all non visible detections in reference sensors such that we can reorder based on that
             sensors = remove_non_visible_detections_in_reference_sensor(sensors, sensors[index_reference_sensor].name)
             # Retry reordering based on reindex using reference sensor
             sensors = reorder_detections_sensors(sensors, 'based_on_reference_sensor', sensors[index_reference_sensor].name)
-        
+        print("B5")
         return sensors, nr_calib_boards
     
 if __name__ == "__main__":

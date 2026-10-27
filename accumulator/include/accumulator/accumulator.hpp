@@ -295,7 +295,7 @@ public:
 		// NOTE: topic name is important because the optimizer needs to know which sensor it is
 		// For instance, the topic name requirement is that a lidar sensor should contain 'lidar' in the name.
 		// Furthermore, stereo camera should contain 'stereo', monocular camera should contain 'mono' and radar sensor should contain 'radar')
-		nh_.param<std::vector<std::string> >("sensor_topics", sensor_pattern_topics, {"/stereo_detector/stereo_pattern", "/lidar_detector/lidar_pattern", "/radar_detector/radar_pattern"});
+		nh_.param<std::vector<std::string> >("sensor_topics", sensor_pattern_topics, {"/stereo_detector_alterno/stereo_pattern_alterno", "/lidar_detector/lidar_pattern", "/radar_detector/radar_pattern", "/mono_detector/mono_pattern_flir"});
 
 		// Load config for euclidean clustering of accumulated detections
 		nh_.param<float>("cluster_tolerance", euclidean_config_.cluster_tolerance, 0.03);
@@ -325,6 +325,7 @@ public:
 
 		// Setup visualization markers publisher
 		markers_publisher_ = nh_.advertise<visualization_msgs::MarkerArray>("accumulated_patterns", 10);
+		ROS_INFO_STREAM("aqui");
 	}
 
 private:
@@ -375,6 +376,7 @@ private:
 	/// Check if the pattern is from a radar
 	bool isRadar(std::vector<pcl::PointCloud<pcl::PointXYZ> > const & patterns) {
 		if (patterns.front().size() == nr_output_clusters_radar_) { // Only checks the first item, but actually all elements should have only a single pattern point for radar
+		ROS_INFO_STREAM("here");
 			return true;
 		}
 		return false;
@@ -561,6 +563,7 @@ private:
 			}
 		}
 		markers_publisher_.publish(marker_array);
+		ROS_INFO_STREAM("here23");
 	}
 };
 

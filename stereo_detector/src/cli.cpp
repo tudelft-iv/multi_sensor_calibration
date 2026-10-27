@@ -84,18 +84,20 @@ int main(int argc, char * * argv) {
 	}
 
 	// Load image
-	cv::Mat image = cv::imread(image_file, CV_LOAD_IMAGE_GRAYSCALE);
+	cv::Mat image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
 	if (image.empty()) {
 		std::cout << "Could not open file: '" << image_file << "'." << std::endl;
 		return 1;
 	}
 
 	// Do the actual processing
-	pcl::PointCloud<pcl::PointXYZRGB> detected_pattern = keypointDetection(
-		image,
-		cloud,
-		config
-	);
+	// Llamada actualizada para recibir BOTH keypoints y edge_cloud
+	auto result = keypointDetection(image, cloud, config);
+	pcl::PointCloud<pcl::PointXYZRGB> detected_pattern = result.first;
+	pcl::PointCloud<pcl::PointXYZRGB> edge_cloud = result.second;
+
+// (opcional) Guarda edge_cloud para análisis
+pcl::io::savePCDFileBinary("/home/husky/temporal/edge_cloud_cli.pcd", edge_cloud);
 
 	// Check file extension
 	std::string file_extension = getFileExtension(argv[4]);

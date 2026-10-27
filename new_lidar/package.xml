@@ -1,0 +1,16 @@
+<package format="2">
+  <name>new_lidar</name>
+  <version>0.0.0</version>
+  <description>New LiDAR circle detector</description>
+
+  <maintainer email="you@todo.todo">lucas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>pcl_ros</depend>
+  <depend>pcl_conversions</depend>
+  <depend>visualization_msgs</depend>
+</package>
