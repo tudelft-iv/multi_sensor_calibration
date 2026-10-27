@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(mono_detector)
 
-set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_STANDARD 14)
 
 find_package(catkin REQUIRED COMPONENTS
 	cmake_modules

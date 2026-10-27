@@ -119,7 +119,7 @@ void visualize(cv::Mat const & image, std::vector<cv::Vec3f> const & circles, cv
 		cv::rectangle(draw, roi.tl(), roi.br(), cv::Scalar(255, 0, 0), 3);
 	}
 	std::string window_name = "result";
-	cv::namedWindow(window_name, CV_WINDOW_NORMAL);
+	cv::namedWindow(window_name, cv::WINDOW_NORMAL);
 	cv::imshow(window_name, draw);
 	cv::waitKey(100);
 }

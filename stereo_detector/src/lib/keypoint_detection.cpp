@@ -17,6 +17,7 @@
   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include <ros/ros.h>
 #include "keypoint_detection.hpp"
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/sample_consensus/model_types.h>
@@ -82,7 +83,7 @@ pcl::PointCloud<pcl::PointXYZRGB> crop(pcl::PointCloud<pcl::PointXYZRGB> const &
 
 /// Visualize the image based region-of-interest
 void drawRoi(cv::Mat const & image, cv::Rect const & roi) {
-	cv::namedWindow("roi", CV_WINDOW_NORMAL);
+	cv::namedWindow("roi", cv::WINDOW_NORMAL);
 	cv::Mat draw = image.clone();
 	if (draw.channels() == 1) {
 		cv::cvtColor(draw, draw, cv::COLOR_GRAY2BGR);
@@ -396,12 +397,11 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
 	}
 	cv::Mat image_roi = image(config.roi);
 	pcl::PointCloud<pcl::PointXYZRGB> cloud_roi = crop(cloud, config.roi);
-
 	// Edge detection in image left
 	cv::Mat edge_image;
 	cv::Canny(image_roi, edge_image, config.canny.min, config.canny.max);
 	if (config.visualize) {
-		cv::namedWindow("image", CV_WINDOW_NORMAL);
+		cv::namedWindow("image", cv::WINDOW_NORMAL);
 		cv::imshow("image", edge_image);
 		cv::waitKey();
 	}
@@ -413,23 +413,17 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
 
 	// Extract pointcloud with edges
 	pcl::PointCloud<pcl::PointXYZRGB> edge_cloud = keep(edge_image, cloud_roi, config.visualize);
-
 	// Segment points close to plane
 	edge_cloud = segmentPlane(*cam_plane_coeffs, edge_cloud, config.plane_distance);
-
 	// Apply a passthrough filter to remove points
 	edge_cloud = passThrough(edge_cloud, config.pass_through_filter);
-
 	// Project edge_cloud on plane
 	projectOnPlane(edge_cloud, cam_plane_coeffs);
-
 	// Get rotation which is required for 2D fitting
 	Eigen::Affine3d rotation = getRotation(*cam_plane_coeffs);
-
 	// Transform edge point cloud to xy plane
 	pcl::PointCloud<pcl::PointXYZRGB> edge_cloud_xy;
 	pcl::transformPointCloud(edge_cloud, edge_cloud_xy, rotation);
-
 	// Two-dimensional circle fitting of remaining point cloud
 	pcl::PointCloud<pcl::PointXYZRGB> circles = processCircles(
 		edge_cloud_xy,
@@ -441,20 +435,16 @@ pcl::PointCloud<pcl::PointXYZRGB> keypointDetection(
 		config.circle_detection.radius_max_points,
 		config.circle_detection.max_points_within_radius
 	);
-
 	// Rotate resulting point cloud back to original frame
 	pcl::transformPointCloud(circles, circles, rotation.inverse());
-
 	// Visualize circles optionally
 	if (config.visualize) {
 		pclVisualizeCircles(passThrough(edge_cloud, config.pass_through_filter), circles);
 	}
-
 	// Refine circle centers using calibration board geometry
 	if (config.refinement.refine) {
 		circles = refinement(circles, config);
 	}
-
 	return circles;
 }
 

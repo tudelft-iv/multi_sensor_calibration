@@ -2,21 +2,21 @@ visualize: false
 lidar_parameters:
     number_layers: 64                          # How many number of layers (aka nr of rings) does the lidar have?
 pass_through_filter:                             # Reduced the pointclouds to area that can contain the calibration board
-    -  {dim: "y", min: 3.0, max: 6.5}            # Passthrough filter in y direction: min and max values
-    -  {dim: "x", min: -2.0, max: 2.5}           # Passthrough filter in x direction: min and max values
+    -  {dim: "y", min: -1.8, max: 1.9}            # Passthrough filter in y direction: min and max values
+    -  {dim: "x", min: -2.4, max: 3.0}           # Passthrough filter in x direction: min and max values
 ground_floor_filter:                             # Parameters to remove ground floor from pointcloud
-    distance_threshold: 0.1
+    distance_threshold: 0.3
     axis: {x: 0.0, y: 0.0, z: 1.0}
-    eps_angle: 0.55
+    eps_angle: 0.6
     max_iterations: 1000
     set_negative: true
     model_type: "sacmodel_perpendicular_plane"
     return_projected: false
 calibration_board_filter:                        # Parameters to extract planar surface of calibration board
-    distance_threshold: 0.15
+    distance_threshold: 0.2
     axis: {x: 0.0, y: 0.0, z: 1.0}
-    eps_angle: 0.55
-    max_iterations: 250
+    eps_angle: 0.65
+    max_iterations: 500
     set_negative: false
     model_type: "sacmodel_parallel_plane"
     return_projected: true

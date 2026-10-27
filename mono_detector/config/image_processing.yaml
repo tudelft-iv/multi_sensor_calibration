@@ -27,8 +27,8 @@ hough:                      # Detect circles using hough transform
 
 roi:                        # Region of interest to find circles
     x: 0
-    y: 850
-    width: 1900
-    height: 400
+    y: 0
+    width: 640              #800
+    height: 512             #800
 
-visualize: false
+visualize: true

@@ -5,10 +5,10 @@ canny:                                 # Canny edge detection parameters
     min: 100
     max: 120
 roi:                                   # ROI for detecting circles
-    x: 0
-    y: 800
-    width: 1936
-    height: 400
+    x: 50
+    y: 10
+    width: 750
+    height: 780
 plane_filter:                          # Get plane of calibration boaard
     threshold: 0.1
     eps_angle: 0.35
@@ -22,7 +22,7 @@ circle_detection:                      # Parameters to fit circles in pointcloud
     radius_max_points: 0.05            # Circle radius to count number of points
     max_points_within_radius: 1000000  # Maximum nr of points to be allowed within radius (radius_max_points), which determines if circle proposal is valid.
 plane_distance: 0.1
-visualize: false
+visualize: true
 refinement:                            # Refinement of circle centers by performing a least square fit based on all 4 detections. If refine = false, individual circle center detections are returned.
     refine: false                       # If yes, return least square fit based on 3 or 4 detections. If no returns, individual detections.
     width: 0.24                        # width: distance between circle centers

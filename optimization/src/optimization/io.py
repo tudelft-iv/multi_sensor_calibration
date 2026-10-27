@@ -55,7 +55,8 @@ def write_tms_to_launch_file(sensors, Tms, reference_sensor, directory="results"
 
     # Export to YAML
     for i in range(len(sensors)):
-        filename = os.path.join(directory, sensors[i].name + '.launch')
+        safe_sensor_name = sensors[i].name.strip('/').replace('/', '_')
+        filename = os.path.join(directory, safe_sensor_name + '.launch')
         print('Saving launch files in: ', filename)
         export2launchfile(filename, sensors[i].name, target_link, sensors[i].link, Tms[i])
 
@@ -69,7 +70,8 @@ def write_tms_to_yaml(sensors, Tms, reference_sensor, directory="results"):
 
     # Export to YAML
     for i in range(len(sensors)):
-        filename = os.path.join(directory, sensors[i].name + '.yaml')
+        safe_sensor_name = sensors[i].name.strip('/').replace('/', '_')
+        filename = os.path.join(directory, safe_sensor_name + '.yaml')
         print('Saving yaml files in: ', filename)
         with open(filename, 'w', encoding='utf8') as outfile:
             yaml.dump({'target': sensors[i].link}, outfile, default_flow_style=False, allow_unicode=True)
@@ -168,6 +170,7 @@ def read_csv_file(name):
 def export2launchfile(filename, node_name, source_tf, target_tf, T):
 
     Trf = np.linalg.inv(T)
+    safe_node_name = node_name.strip('/').replace('/', '_')
 
     x = Trf[0, 3]
     y = Trf[1, 3]
@@ -175,7 +178,7 @@ def export2launchfile(filename, node_name, source_tf, target_tf, T):
     r = rotm2eul(Trf[:3, :3])
     f = open(filename, 'w')
     f.write('<launch>')
-    f.write('\n<node pkg="tf" type="static_transform_publisher" name="' + node_name + '" ')
+    f.write('\n<node pkg="tf" type="static_transform_publisher" name="' + safe_node_name + '" ')
     f.write('args= " ')
     f.write('{: .5f}'.format(x) + " " + '{: .5f}'.format(y) + " " + '{: .5f}'.format(z) + " " + '{: .5f}'.format(r[0]) + " " + '{: .5f}'.format(r[1]) + " " + '{: .5f}'.format(r[2]))
     f.write(" " + source_tf + " " + target_tf + " 10")
@@ -256,7 +259,8 @@ def export_sensor_data_to_yaml(sensors, folder =''):
     print('Export sensor data to YAML files')
     # Loop over all sensor data
     for i in range(len(sensors)):
-        filename = os.path.join(folder, sensors[i].name + '_yaml_dump.yaml')
+        safe_sensor_name = sensors[i].name.strip('/').replace('/', '_')
+        filename = os.path.join(folder, safe_sensor_name + '_yaml_dump.yaml')
         data_shape = sensors[i].sensor_data.shape
         file = open(filename,'w') 
         # Loop over all detections
@@ -275,5 +279,6 @@ def export_sensor_data_to_csv(sensors, folder=''):
     print('Export sensor data to csv files')
     # Loop over all sensor data
     for i in range(len(sensors)):
-        filename = os.path.join(folder, sensors[i].name + '_csv_dump.csv')
+        safe_sensor_name = sensors[i].name.strip('/').replace('/', '_')
+        filename = os.path.join(folder, safe_sensor_name + '_csv_dump.csv')
         np.savetxt(filename, sensors[i].sensor_data, delimiter=',')

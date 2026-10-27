@@ -88,7 +88,7 @@ visualization_msgs::Marker toArc(pcl::PointXYZ const & point, std_msgs::Header c
 		// Store point
 		marker.points.push_back(toRos(t));
 	}
-
+	
 	marker.color.a = 1.0;
 	marker.color.r = 0.0;
 	marker.color.g = 1.0;
@@ -157,7 +157,7 @@ RadarDetectorNode::RadarDetectorNode(ros::NodeHandle & nh) :
                          << " or " << radar_detector::SELECT_MAX << " (current value: " << selection_criterion <<  ")");
         initialization_errors = true;
 	}
-
+	
 	if(initialization_errors)
 	{
 	    throw std::exception();
@@ -169,15 +169,15 @@ RadarDetectorNode::RadarDetectorNode(ros::NodeHandle & nh) :
 	ROS_INFO("Initialized radar detector.");
 }
 
-void RadarDetectorNode::callback(radar_msgs::RadarDetectionArray const & in) {
+void RadarDetectorNode::callback(const sensor_msgs::PointCloud2ConstPtr& in) {
 	ROS_INFO_ONCE("Receiving radar messages.");
 	// Find reflection of calibration board
 	pcl::PointXYZ point = keypointDetection(in, min_RCS_, max_RCS_,min_range_object_, max_range_object_, select_range_, select_min_);
 
 	// Publish results if detected point is valid (so not in origin of sensor)
 	if (isValidDetection(point)) {
-		publishMarker(point, in.header);
-		publishPattern(point, in.header);
+		publishMarker(point, (*in).header);
+		publishPattern(point, (*in).header);
 	}
 }
 
